@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id                 Int        @id @default(autoincrement())
+  name               String
+  ticker             String?
+  cik                String     @unique
+  source             String
+  hq_city            String?
+  hq_state           String?
+  incorporated_state String?
+  include_override   Boolean    @default(false)
+  override_reason    String?
+  active             Boolean    @default(true)
+  added_by           String?
+  added_date         DateTime   @default(now())
+  notes              String?
+  properties         Property[]
+  alerts             Alert[]
+  pipeline           Pipeline[]
+  filings            Filing[]
+}
+
+model REIT {
+  id         Int        @id @default(autoincrement())
+  name       String
+  ticker     String?
+  cik        String     @unique
+  active     Boolean    @default(true)
+  properties Property[]
+  filings    Filing[]
+}
+
+model Filing {
+  id             Int       @id @default(autoincrement())
+  company_id     Int?
+  reit_id        Int?
+  filing_type    String
+  filing_date    DateTime
+  period         String?
+  raw_text_url   String?
+  processed      Boolean   @default(false)
+  processed_date DateTime?
+  company        Company?  @relation(fields: [company_id], references: [id])
+  reit           REIT?     @relation(fields: [reit_id], references: [id])
+}
+
+model Property {
+  id                   Int      @id @default(autoincrement())
+  company_id           Int?
+  reit_id              Int?
+  tenant_name          String?
+  property_type        String
+  city                 String?
+  state                String?
+  sqft                 Int?
+  lease_expiration_year Int?
+  lease_type           String?
+  percent_of_building  Float?
+  occupancy_trend      String?
+  opportunity_score    Int?
+  real_estate_strategy String?
+  trigger_events       String[]
+  recommended_action   String?
+  notes                String?
+  contacted            Boolean  @default(false)
+  filing_date          DateTime?
+  filing_url           String?
+  company              Company? @relation(fields: [company_id], references: [id])
+  reit                 REIT?    @relation(fields: [reit_id], references: [id])
+}
+
+model Alert {
+  id          Int      @id @default(autoincrement())
+  company_id  Int
+  alert_type  String
+  summary     String
+  filing_date DateTime
+  filing_url  String?
+  reviewed    Boolean  @default(false)
+  company     Company  @relation(fields: [company_id], references: [id])
+}
+
+model Pipeline {
+  id           Int      @id @default(autoincrement())
+  company_id   Int
+  contact_name String?
+  contact_title String?
+  status       String
+  notes        String?
+  added_date   DateTime @default(now())
+  last_updated DateTime @updatedAt
+  company      Company  @relation(fields: [company_id], references: [id])
+}
+
+model User {
+  id            Int    @id @default(autoincrement())
+  email         String @unique
+  password_hash String
+  name          String
+  role          String @default("member")
+}
