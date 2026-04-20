@@ -5,10 +5,11 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const state = searchParams.get('state')
   const search = searchParams.get('search')
+  const all = searchParams.get('all') === '1'
 
   const companies = await prisma.company.findMany({
     where: {
-      active: true,
+      ...(all ? {} : { active: true }),
       ...(state ? { hq_state: state } : {}),
       ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
     },

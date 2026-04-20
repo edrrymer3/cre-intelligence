@@ -1,121 +1,359 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
-interface Company {
+interface Property {
   id: number
-  name: string
-  ticker: string | null
-  hq_state: string | null
-  hq_city: string | null
-  source: string
+  tenant_name: string | null
+  property_type: string
+  city: string | null
+  state: string | null
+  sqft: number | null
+  lease_expiration_year: number | null
+  lease_type: string | null
+  opportunity_score: number | null
+  trigger_events: string[]
+  recommended_action: string | null
+  filing_date: string | null
+  filing_url: string | null
   notes: string | null
-  _count: { properties: number; alerts: number }
+  contacted: boolean
+  real_estate_strategy: string | null
+  company: { name: string; ticker: string | null } | null
+}
+
+type SortKey = keyof Property
+type SortDir = 'asc' | 'desc'
+
+const SCORE_COLORS: Record<number, string> = {
+  5: 'bg-green-100 text-green-800',
+  4: 'bg-blue-100 text-blue-800',
+  3: 'bg-yellow-100 text-yellow-800',
+  2: 'bg-gray-100 text-gray-600',
+  1: 'bg-gray-100 text-gray-400',
 }
 
 export default function ProspectsPage() {
-  const [companies, setCompanies] = useState<Company[]>([])
+  const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [editNotes, setEditNotes] = useState<Record<number, string>>({})
+
+  // Filters
+  const [propType, setPropType] = useState('')
+  const [expYear, setExpYear] = useState('')
+  const [minScore, setMinScore] = useState('')
+  const [cityFilter, setCityFilter] = useState('')
   const [search, setSearch] = useState('')
-  const [state, setState] = useState('')
+  const [triggerFilter, setTriggerFilter] = useState('')
 
-  async function load() {
-    setLoading(true)
+  // Sort
+  const [sortKey, setSortKey] = useState<string>('opportunity_score')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  useEffect(() => {
     const params = new URLSearchParams()
-    if (search) params.set('search', search)
-    if (state) params.set('state', state)
-    const res = await fetch(`/api/companies?${params}`)
-    const data = await res.json()
-    setCompanies(data)
-    setLoading(false)
+    if (propType) params.set('type', propType)
+    if (minScore) params.set('minScore', minScore)
+    if (expYear) params.set('expiringBefore', expYear)
+    fetch(`/api/properties?${params}`)
+      .then((r) => r.json())
+      .then((data) => { setProperties(data); setLoading(false) })
+  }, [propType, minScore, expYear])
+
+  const allTriggers = useMemo(() => {
+    const set = new Set<string>()
+    properties.forEach((p) => p.trigger_events?.forEach((t) => set.add(t)))
+    return [...set].slice(0, 20)
+  }, [properties])
+
+  const allCities = useMemo(() => {
+    const set = new Set<string>()
+    properties.forEach((p) => { if (p.city) set.add(p.city) })
+    return [...set].sort()
+  }, [properties])
+
+  const filtered = useMemo(() => {
+    let rows = properties
+    if (search) {
+      const q = search.toLowerCase()
+      rows = rows.filter((p) =>
+        p.company?.name?.toLowerCase().includes(q) ||
+        p.tenant_name?.toLowerCase().includes(q)
+      )
+    }
+    if (cityFilter) rows = rows.filter((p) => p.city === cityFilter)
+    if (triggerFilter) rows = rows.filter((p) => p.trigger_events?.includes(triggerFilter))
+    return [...rows].sort((a, b) => {
+      const av = (a as unknown as Record<string, unknown>)[sortKey]
+      const bv = (b as unknown as Record<string, unknown>)[sortKey]
+      if (av === null || av === undefined) return 1
+      if (bv === null || bv === undefined) return -1
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [properties, search, cityFilter, triggerFilter, sortKey, sortDir])
+
+  // SF expiring by year chart data
+  const chartData = useMemo(() => {
+    const years: Record<number, number> = {}
+    for (let y = 2025; y <= 2030; y++) years[y] = 0
+    properties.forEach((p) => {
+      const y = p.lease_expiration_year
+      if (y && y >= 2025 && y <= 2030) years[y] += p.sqft || 0
+    })
+    return Object.entries(years).map(([year, sf]) => ({ year, sf: Math.round(sf / 1000) }))
+  }, [properties])
+
+  function toggleSort(key: string) {
+    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('desc') }
   }
 
-  useEffect(() => { load() }, [])
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    load()
+  async function saveNotes(id: number, notes: string) {
+    await fetch(`/api/properties/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+    })
+    setProperties((prev) => prev.map((p) => p.id === id ? { ...p, notes } : p))
   }
+
+  async function toggleContacted(id: number, current: boolean) {
+    await fetch(`/api/properties/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contacted: !current }),
+    })
+    setProperties((prev) => prev.map((p) => p.id === id ? { ...p, contacted: !current } : p))
+  }
+
+  const SortHeader = ({ label, field }: { label: string; field: string }) => (
+    <th
+      onClick={() => toggleSort(field)}
+      className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-800 select-none whitespace-nowrap"
+    >
+      {label} {sortKey === field ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+    </th>
+  )
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Prospects</h1>
-        <span className="text-gray-500 text-sm">{companies.length} companies</span>
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold text-gray-900">Tenant Prospects</h1>
+        <span className="text-gray-500 text-sm">{filtered.length} properties</span>
       </div>
 
+      {/* Chart */}
+      {chartData.some((d) => d.sf > 0) && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-5">
+          <h2 className="text-sm font-semibold text-gray-600 mb-3">SF Expiring by Year (thousands)</h2>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(v) => [`${v}k SF`, 'Expiring']} />
+              <Bar dataKey="sf" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Filters */}
-      <form onSubmit={handleSearch} className="flex gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="text"
-          placeholder="Search by name..."
+          placeholder="Search company..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-64"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 w-52"
         />
-        <input
-          type="text"
-          placeholder="State (e.g. MN)"
-          value={state}
-          onChange={(e) => setState(e.target.value.toUpperCase())}
-          maxLength={2}
-          className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-32"
-        />
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+        <select
+          value={propType}
+          onChange={(e) => setPropType(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
         >
-          Search
-        </button>
-      </form>
+          <option value="">All Types</option>
+          <option value="office">Office</option>
+          <option value="industrial">Industrial</option>
+        </select>
+        <select
+          value={expYear}
+          onChange={(e) => setExpYear(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+        >
+          <option value="">Any Expiration</option>
+          <option value="2025">Expiring ≤ 2025</option>
+          <option value="2026">Expiring ≤ 2026</option>
+          <option value="2027">Expiring ≤ 2027</option>
+          <option value="2028">Expiring ≤ 2028</option>
+        </select>
+        <select
+          value={minScore}
+          onChange={(e) => setMinScore(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+        >
+          <option value="">Any Score</option>
+          <option value="3">Score 3+</option>
+          <option value="4">Score 4+</option>
+          <option value="5">Score 5 only</option>
+        </select>
+        {allCities.length > 0 && (
+          <select
+            value={cityFilter}
+            onChange={(e) => setCityFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+          >
+            <option value="">All Cities</option>
+            {allCities.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+        {allTriggers.length > 0 && (
+          <select
+            value={triggerFilter}
+            onChange={(e) => setTriggerFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+          >
+            <option value="">All Triggers</option>
+            {allTriggers.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        )}
+      </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Company</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ticker</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</th>
-              <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Source</th>
-              <th className="text-center px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Properties</th>
-              <th className="text-center px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Alerts</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">Loading...</td></tr>
-            ) : companies.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">No prospects found. Run the discovery script to populate.</td></tr>
-            ) : (
-              companies.map((co) => (
-                <tr key={co.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{co.name}</div>
-                    {co.notes && <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{co.notes}</div>}
-                  </td>
-                  <td className="px-6 py-4 text-gray-600 font-mono text-sm">{co.ticker || '—'}</td>
-                  <td className="px-6 py-4 text-gray-600 text-sm">
-                    {[co.hq_city, co.hq_state].filter(Boolean).join(', ') || '—'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">{co.source}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`text-sm font-medium ${co._count.properties > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
-                      {co._count.properties}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`text-sm font-medium ${co._count.alerts > 0 ? 'text-orange-500' : 'text-gray-400'}`}>
-                      {co._count.alerts}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <SortHeader label="Company" field="tenant_name" />
+                <SortHeader label="Ticker" field="company" />
+                <SortHeader label="Type" field="property_type" />
+                <SortHeader label="City" field="city" />
+                <SortHeader label="SF" field="sqft" />
+                <SortHeader label="Exp. Year" field="lease_expiration_year" />
+                <SortHeader label="Score" field="opportunity_score" />
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Triggers</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                <SortHeader label="Filing Date" field="filing_date" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr><td colSpan={10} className="text-center py-12 text-gray-400">Loading...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={10} className="text-center py-12 text-gray-400">No properties found. Run the extraction script to populate.</td></tr>
+              ) : (
+                filtered.map((p) => (
+                  <>
+                    <tr
+                      key={p.id}
+                      onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                      className={`hover:bg-gray-50 cursor-pointer transition ${p.contacted ? 'opacity-60' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-900 text-sm">
+                        {p.company?.name || p.tenant_name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-gray-500">{p.company?.ticker || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.property_type === 'office' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {p.property_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{p.city || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{p.sqft ? p.sqft.toLocaleString() : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{p.lease_expiration_year || '—'}</td>
+                      <td className="px-4 py-3">
+                        {p.opportunity_score ? (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${SCORE_COLORS[p.opportunity_score] || 'bg-gray-100 text-gray-600'}`}>
+                            {p.opportunity_score}/5
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="px-4 py-3 max-w-xs">
+                        <div className="flex flex-wrap gap-1">
+                          {p.trigger_events?.slice(0, 2).map((t, i) => (
+                            <span key={i} className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded">
+                              {t.length > 25 ? t.slice(0, 25) + '…' : t}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500 max-w-[180px] truncate">{p.recommended_action || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-gray-400">
+                        {p.filing_date ? new Date(p.filing_date).toLocaleDateString() : '—'}
+                      </td>
+                    </tr>
+                    {expandedId === p.id && (
+                      <tr key={`${p.id}-expanded`} className="bg-blue-50 border-b border-blue-100">
+                        <td colSpan={10} className="px-6 py-5">
+                          <div className="grid grid-cols-2 gap-6">
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-2">AI Summary</h3>
+                              <p className="text-sm text-gray-600">{p.real_estate_strategy || 'No summary available.'}</p>
+                              {p.trigger_events?.length > 0 && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-semibold text-gray-500 uppercase">Trigger Events</span>
+                                  <ul className="mt-1 space-y-1">
+                                    {p.trigger_events.map((t, i) => (
+                                      <li key={i} className="text-sm text-gray-600">• {t}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {p.filing_url && (
+                                <a
+                                  href={p.filing_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-3 inline-block text-sm text-blue-600 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  View EDGAR Filing →
+                                </a>
+                              )}
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-2">Notes</h3>
+                              <textarea
+                                value={editNotes[p.id] ?? p.notes ?? ''}
+                                onChange={(e) => setEditNotes((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                                rows={3}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none"
+                                placeholder="Add notes..."
+                              />
+                              <div className="flex items-center gap-3 mt-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); saveNotes(p.id, editNotes[p.id] ?? p.notes ?? '') }}
+                                  className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
+                                >
+                                  Save Notes
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleContacted(p.id, p.contacted) }}
+                                  className={`text-sm px-3 py-1.5 rounded-lg border transition ${
+                                    p.contacted
+                                      ? 'border-green-400 text-green-700 bg-green-50'
+                                      : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-700'
+                                  }`}
+                                >
+                                  {p.contacted ? '✓ Contacted' : 'Mark as Contacted'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

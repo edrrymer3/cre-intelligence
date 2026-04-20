@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 
 const navItems = [
-  { href: '/dashboard/prospects', label: 'Prospects', icon: '🏢' },
-  { href: '/dashboard/reits', label: 'REITs', icon: '📋' },
-  { href: '/dashboard/alerts', label: 'Alerts', icon: '🔔' },
-  { href: '/dashboard/pipeline', label: 'Pipeline', icon: '📊' },
+  { href: '/dashboard/prospects', label: 'Tenant Prospects', icon: '🏢' },
+  { href: '/dashboard/reits', label: 'REIT Watchlist', icon: '📋' },
+  { href: '/dashboard/alerts', label: '8-K Alerts', icon: '🔔' },
+  { href: '/dashboard/watchlist', label: 'Watchlist Manager', icon: '⚙️' },
+  { href: '/dashboard/pipeline', label: 'My Pipeline', icon: '📊' },
+  { href: '/dashboard/admin', label: 'Admin', icon: '🔧' },
 ]
 
 interface NavProps {
