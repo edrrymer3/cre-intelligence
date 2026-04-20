@@ -62,6 +62,11 @@ export default function ProspectsPage() {
   const [outreachEmails, setOutreachEmails] = useState<Record<number, OutreachEmail[]>>({})
   const [generatingOutreach, setGeneratingOutreach] = useState<number | null>(null)
   const [outreachDraft, setOutreachDraft] = useState<Record<number, { subject: string; body: string }>>({})
+  const [researchingId, setResearchingId] = useState<number | null>(null)
+  const [researchReports, setResearchReports] = useState<Record<number, { report_text: string; opportunity_rating: string; generated_date: string }[]>>({})
+  const [linkedinDraft, setLinkedinDraft] = useState<Record<number, { connectionRequest: string; followUp: string }>>({})
+  const [generatingLinkedin, setGeneratingLinkedin] = useState<number | null>(null)
+  const [priorityScores, setPriorityScores] = useState<Record<number, { score: number; breakdown: string }>>({})
 
   // Filters
   const [propType, setPropType] = useState('')
@@ -166,6 +171,30 @@ export default function ProspectsPage() {
     const data = await res.json()
     setContacts((prev) => ({ ...prev, [companyId]: data.contacts || [] }))
     setLoadingContacts(null)
+  }
+
+  async function runDeepResearch(companyId: number) {
+    setResearchingId(companyId)
+    const res = await fetch('/api/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company_id: companyId }),
+    })
+    const data = await res.json()
+    setResearchReports((prev) => ({ ...prev, [companyId]: [data, ...(prev[companyId] || [])] }))
+    setResearchingId(null)
+  }
+
+  async function generateLinkedin(companyId: number, propertyId: number) {
+    setGeneratingLinkedin(companyId)
+    const res = await fetch('/api/linkedin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company_id: companyId, property_id: propertyId }),
+    })
+    const data = await res.json()
+    setLinkedinDraft((prev) => ({ ...prev, [companyId]: { connectionRequest: data.connectionRequest, followUp: data.followUp } }))
+    setGeneratingLinkedin(null)
   }
 
   async function generateOutreach(companyId: number, propertyId: number) {
@@ -410,6 +439,15 @@ export default function ProspectsPage() {
                             </div>
                           </div>
 
+                          {/* Priority Score */}
+                          {p.company_id && priorityScores[p.company_id] && (
+                            <div className="mt-3 mb-1">
+                              <span className="text-xs text-gray-500">Priority Score: </span>
+                              <span className="text-sm font-bold text-blue-700">{priorityScores[p.company_id].score}/100</span>
+                              <span className="text-xs text-gray-400 ml-2">{priorityScores[p.company_id].breakdown}</span>
+                            </div>
+                          )}
+
                           {/* Contacts + Outreach section */}
                           {p.company_id && (
                             <div className="mt-5 pt-5 border-t border-blue-200">
@@ -502,6 +540,71 @@ export default function ProspectsPage() {
                                     </div>
                                   )}
                                 </div>
+                              </div>
+
+                              {/* LinkedIn Messages */}
+                              <div className="mt-5 pt-4 border-t border-blue-200">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h3 className="text-sm font-semibold text-gray-700">💼 LinkedIn Messages</h3>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); generateLinkedin(p.company_id!, p.id) }}
+                                    disabled={generatingLinkedin === p.company_id}
+                                    className="text-xs bg-blue-700 text-white px-2 py-1 rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
+                                  >
+                                    {generatingLinkedin === p.company_id ? '⏳ Generating…' : 'Generate LinkedIn'}
+                                  </button>
+                                </div>
+                                {linkedinDraft[p.company_id!] && (
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <p className="text-xs font-medium text-gray-500 mb-1">Connection Request (300 char max)</p>
+                                      <textarea rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs resize-none"
+                                        value={linkedinDraft[p.company_id!].connectionRequest}
+                                        onChange={(e) => setLinkedinDraft((prev) => ({ ...prev, [p.company_id!]: { ...prev[p.company_id!], connectionRequest: e.target.value } }))}
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(linkedinDraft[p.company_id!].connectionRequest) }}
+                                        className="text-xs border border-gray-300 text-gray-600 px-2 py-1 rounded-lg hover:border-blue-400 transition mt-1">Copy</button>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium text-gray-500 mb-1">Follow-up Message (500 char max)</p>
+                                      <textarea rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs resize-none"
+                                        value={linkedinDraft[p.company_id!].followUp}
+                                        onChange={(e) => setLinkedinDraft((prev) => ({ ...prev, [p.company_id!]: { ...prev[p.company_id!], followUp: e.target.value } }))}
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(linkedinDraft[p.company_id!].followUp) }}
+                                        className="text-xs border border-gray-300 text-gray-600 px-2 py-1 rounded-lg hover:border-blue-400 transition mt-1">Copy</button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Deep Research */}
+                              <div className="mt-4 pt-4 border-t border-blue-200">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h3 className="text-sm font-semibold text-gray-700">🔬 Deep Research</h3>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); runDeepResearch(p.company_id!) }}
+                                    disabled={researchingId === p.company_id}
+                                    className="text-xs bg-gray-800 text-white px-2 py-1 rounded-lg hover:bg-gray-900 transition disabled:opacity-50"
+                                  >
+                                    {researchingId === p.company_id ? '⏳ Researching…' : '🔬 Run Research'}
+                                  </button>
+                                </div>
+                                {researchReports[p.company_id!]?.map((r) => (
+                                  <div key={r.generated_date} className="bg-white rounded-lg border border-gray-200 p-3 mb-2">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                                        r.opportunity_rating === 'Hot' ? 'bg-red-100 text-red-700' :
+                                        r.opportunity_rating === 'Warm' ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-blue-100 text-blue-700'
+                                      }`}>{r.opportunity_rating}</span>
+                                      <span className="text-xs text-gray-400">{new Date(r.generated_date).toLocaleDateString()}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap line-clamp-6">{r.report_text}</p>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           )}

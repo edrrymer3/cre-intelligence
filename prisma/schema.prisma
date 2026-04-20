@@ -30,6 +30,8 @@ model Company {
   portfolio_locations PortfolioLocation[]
   contacts            Contact[]
   outreach_emails     OutreachEmail[]
+  research_reports    ResearchReport[]
+  priority_score      PriorityScore?
 }
 
 model REIT {
@@ -207,12 +209,35 @@ model OutreachEmail {
   contact_id     Int?
   subject        String?
   body           String
+  channel        String    @default("email")
   generated_date DateTime  @default(now())
   sent           Boolean   @default(false)
   sent_date      DateTime?
   notes          String?
   company        Company   @relation(fields: [company_id], references: [id])
   contact        Contact?  @relation(fields: [contact_id], references: [id])
+}
+
+model ResearchReport {
+  id                Int      @id @default(autoincrement())
+  company_id        Int
+  report_text       String
+  opportunity_rating String
+  generated_date    DateTime @default(now())
+  company           Company  @relation(fields: [company_id], references: [id])
+}
+
+model PriorityScore {
+  id                   Int      @id @default(autoincrement())
+  company_id           Int      @unique
+  score                Int
+  lease_points         Int      @default(0)
+  trigger_points       Int      @default(0)
+  market_points        Int      @default(0)
+  engagement_points    Int      @default(0)
+  breakdown            String
+  calculated_at        DateTime @default(now())
+  company              Company  @relation(fields: [company_id], references: [id])
 }
 
 model ContactActivity {

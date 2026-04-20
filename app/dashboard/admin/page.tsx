@@ -35,6 +35,9 @@ export default function AdminPage() {
   const [savingSettings, setSavingSettings] = useState(false)
   const [contactsRunning, setContactsRunning] = useState(false)
   const [contactsLog, setContactsLog] = useState('')
+  const [researchRunning, setResearchRunning] = useState(false)
+  const [researchLog, setResearchLog] = useState('')
+  const [scoringRunning, setScoringRunning] = useState(false)
   const logRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
@@ -215,6 +218,48 @@ export default function AdminPage() {
           <div className="bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-4 h-32 overflow-y-auto whitespace-pre-wrap mt-2">
             {contactsLog}
           </div>
+        )}
+      </div>
+
+      {/* Deep Research */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">🔬 Deep Research — All Hot Prospects</h2>
+            <p className="text-sm text-gray-500 mt-1">Runs Claude research report on all companies with score ≥4 or priority score ≥70</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={async () => {
+              setScoringRunning(true)
+              await fetch('/api/scoring', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+              setScoringRunning(false)
+            }} disabled={scoringRunning}
+              className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition disabled:opacity-50">
+              {scoringRunning ? '⏳ Scoring…' : '📊 Recalculate Scores'}
+            </button>
+            <button onClick={async () => {
+              setResearchRunning(true)
+              setResearchLog('')
+              const res = await fetch('/api/research', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all_hot: true }) })
+              if (!res.body) { setResearchRunning(false); return }
+              const reader = res.body.getReader()
+              const decoder = new TextDecoder()
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                setResearchLog((prev) => prev + decoder.decode(value))
+              }
+              setResearchRunning(false)
+            }} disabled={researchRunning}
+              className={`px-5 py-2.5 rounded-lg text-sm font-medium transition ${
+                researchRunning ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' : 'bg-gray-800 text-white hover:bg-gray-900'
+              }`}>
+              {researchRunning ? '⏳ Researching…' : 'Run Deep Research'}
+            </button>
+          </div>
+        </div>
+        {researchLog && (
+          <div className="bg-gray-900 text-green-400 text-xs font-mono rounded-lg p-4 h-40 overflow-y-auto whitespace-pre-wrap">{researchLog}</div>
         )}
       </div>
 
