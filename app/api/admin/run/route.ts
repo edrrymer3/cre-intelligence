@@ -8,6 +8,7 @@ const SCRIPTS: Record<string, string> = {
   'discover-companies': 'scripts/discover-companies.ts',
   'discover-reits': 'scripts/discover-reits.ts',
   'extract-filings': 'scripts/extract-filings.ts',
+  'weekly-digest': 'scripts/weekly-digest.ts',
 }
 
 export async function POST(req: Request) {

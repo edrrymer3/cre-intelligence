@@ -76,3 +76,65 @@ export async function summarizeFiling(filingText: string, companyName: string): 
   })
   return message.content[0].type === 'text' ? message.content[0].text : ''
 }
+
+export interface OutreachResult {
+  subject: string
+  body: string
+}
+
+export async function generateOutreachEmail(params: {
+  contactName: string | null
+  companyName: string
+  propertyType: string
+  city: string | null
+  state: string | null
+  leaseExpirationYear: number | null
+  realEstateStrategy: string | null
+  triggerEvents: string[]
+}): Promise<OutreachResult> {
+  const { contactName, companyName, propertyType, city, state, leaseExpirationYear, realEstateStrategy, triggerEvents } = params
+
+  const bodyMsg = await client.messages.create({
+    model: 'claude-opus-4-5',
+    max_tokens: 512,
+    messages: [
+      {
+        role: 'user',
+        content: `You are an expert commercial real estate tenant representative broker.
+Write a personalized cold outreach email to ${contactName || 'the decision maker'} at ${companyName}.
+Use the following intelligence gathered from their SEC filings:
+- Property type: ${propertyType}
+- Location: ${[city, state].filter(Boolean).join(', ') || 'Twin Cities'}
+- Lease expiration: ${leaseExpirationYear || 'upcoming'}
+- Real estate strategy: ${realEstateStrategy || 'not specified'}
+- Recent trigger events: ${triggerEvents.length > 0 ? triggerEvents.join('; ') : 'none noted'}
+
+The email should:
+- Be concise — 4 sentences maximum
+- Reference the specific filing intelligence naturally without sounding like you read their SEC filing
+- Position Eddie Rymer as a tenant representative at JLL who can help them plan ahead
+- End with a soft ask for a 15 minute call
+- Sound human, not like an AI wrote it
+- Never mention SEC filings or EDGAR directly
+
+Return the email body only — no subject line, no commentary.`,
+      },
+    ],
+  })
+
+  const subjectMsg = await client.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 80,
+    messages: [
+      {
+        role: 'user',
+        content: `Write a concise, personalized email subject line for a cold outreach to ${companyName} about their ${propertyType} lease in ${city || 'the Twin Cities'} expiring ${leaseExpirationYear || 'soon'}. Return subject line text only, no quotes.`,
+      },
+    ],
+  })
+
+  const body = bodyMsg.content[0].type === 'text' ? bodyMsg.content[0].text.trim() : ''
+  const subject = subjectMsg.content[0].type === 'text' ? subjectMsg.content[0].text.trim() : `${companyName} — lease planning`
+
+  return { subject, body }
+}

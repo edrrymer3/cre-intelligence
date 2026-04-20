@@ -3,8 +3,26 @@
 import { useEffect, useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
+interface Contact {
+  id: number
+  name: string | null
+  title: string | null
+  linkedin_url: string | null
+  email: string | null
+  confidence: string | null
+}
+
+interface OutreachEmail {
+  id: number
+  subject: string | null
+  body: string
+  generated_date: string
+  contact: { name: string | null; title: string | null } | null
+}
+
 interface Property {
   id: number
+  company_id: number | null
   tenant_name: string | null
   property_type: string
   city: string | null
@@ -39,6 +57,11 @@ export default function ProspectsPage() {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [editNotes, setEditNotes] = useState<Record<number, string>>({})
+  const [contacts, setContacts] = useState<Record<number, Contact[]>>({})
+  const [loadingContacts, setLoadingContacts] = useState<number | null>(null)
+  const [outreachEmails, setOutreachEmails] = useState<Record<number, OutreachEmail[]>>({})
+  const [generatingOutreach, setGeneratingOutreach] = useState<number | null>(null)
+  const [outreachDraft, setOutreachDraft] = useState<Record<number, { subject: string; body: string }>>({})
 
   // Filters
   const [propType, setPropType] = useState('')
@@ -129,6 +152,35 @@ export default function ProspectsPage() {
       body: JSON.stringify({ contacted: !current }),
     })
     setProperties((prev) => prev.map((p) => p.id === id ? { ...p, contacted: !current } : p))
+  }
+
+  async function loadContacts(companyId: number) {
+    const res = await fetch(`/api/contacts/${companyId}`)
+    const data = await res.json()
+    setContacts((prev) => ({ ...prev, [companyId]: Array.isArray(data) ? data : [] }))
+  }
+
+  async function findContacts(companyId: number) {
+    setLoadingContacts(companyId)
+    const res = await fetch(`/api/contacts/${companyId}`, { method: 'POST' })
+    const data = await res.json()
+    setContacts((prev) => ({ ...prev, [companyId]: data.contacts || [] }))
+    setLoadingContacts(null)
+  }
+
+  async function generateOutreach(companyId: number, propertyId: number) {
+    setGeneratingOutreach(companyId)
+    const res = await fetch('/api/outreach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company_id: companyId, property_id: propertyId }),
+    })
+    const data = await res.json()
+    setOutreachDraft((prev) => ({ ...prev, [companyId]: { subject: data.subject || '', body: data.body || '' } }))
+    // Reload history
+    const hist = await fetch(`/api/outreach?company_id=${companyId}`).then((r) => r.json())
+    setOutreachEmails((prev) => ({ ...prev, [companyId]: Array.isArray(hist) ? hist : [] }))
+    setGeneratingOutreach(null)
   }
 
   const SortHeader = ({ label, field }: { label: string; field: string }) => (
@@ -357,6 +409,102 @@ export default function ProspectsPage() {
                               </div>
                             </div>
                           </div>
+
+                          {/* Contacts + Outreach section */}
+                          {p.company_id && (
+                            <div className="mt-5 pt-5 border-t border-blue-200">
+                              <div className="grid grid-cols-2 gap-6">
+                                {/* Contacts */}
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-semibold text-gray-700">Contacts</h3>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); if (!contacts[p.company_id!]) loadContacts(p.company_id!); findContacts(p.company_id!) }}
+                                      disabled={loadingContacts === p.company_id}
+                                      className="text-xs border border-blue-300 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
+                                    >
+                                      {loadingContacts === p.company_id ? '⏳ Finding…' : '🔎 Find Contacts'}
+                                    </button>
+                                  </div>
+                                  {contacts[p.company_id!]?.length > 0 ? (
+                                    <div className="space-y-2">
+                                      {contacts[p.company_id!].map((c) => (
+                                        <div key={c.id} className="bg-white rounded-lg border border-gray-200 p-3">
+                                          <div className="font-medium text-gray-900 text-sm">{c.name || '—'}</div>
+                                          <div className="text-xs text-gray-500 mb-1">{c.title}</div>
+                                          <div className="flex gap-3 text-xs">
+                                            {c.email && <span className="text-blue-600">{c.email}</span>}
+                                            {c.linkedin_url && (
+                                              <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="text-blue-500 hover:underline">LinkedIn →</a>
+                                            )}
+                                            <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                              c.confidence === 'high' ? 'bg-green-100 text-green-700' :
+                                              c.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                              'bg-gray-100 text-gray-500'
+                                            }`}>{c.confidence}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-gray-400">No contacts yet. Click Find Contacts.</p>
+                                  )}
+                                </div>
+
+                                {/* Outreach Generator */}
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-semibold text-gray-700">Generate Outreach</h3>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); generateOutreach(p.company_id!, p.id) }}
+                                      disabled={generatingOutreach === p.company_id}
+                                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                                    >
+                                      {generatingOutreach === p.company_id ? '🤖 Writing…' : '✍️ Generate'}
+                                    </button>
+                                  </div>
+                                  {outreachDraft[p.company_id!] && (
+                                    <div className="space-y-2">
+                                      <input
+                                        type="text"
+                                        value={outreachDraft[p.company_id!].subject}
+                                        onChange={(e) => setOutreachDraft((prev) => ({ ...prev, [p.company_id!]: { ...prev[p.company_id!], subject: e.target.value } }))}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-medium"
+                                        placeholder="Subject line"
+                                      />
+                                      <textarea
+                                        value={outreachDraft[p.company_id!].body}
+                                        onChange={(e) => setOutreachDraft((prev) => ({ ...prev, [p.company_id!]: { ...prev[p.company_id!], body: e.target.value } }))}
+                                        onClick={(e) => e.stopPropagation()}
+                                        rows={5}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 resize-none"
+                                      />
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(outreachDraft[p.company_id!].body) }}
+                                        className="text-xs border border-gray-300 text-gray-600 px-3 py-1 rounded-lg hover:border-blue-400 hover:text-blue-600 transition"
+                                      >
+                                        Copy Body
+                                      </button>
+                                    </div>
+                                  )}
+                                  {outreachEmails[p.company_id!]?.length > 0 && (
+                                    <div className="mt-3">
+                                      <p className="text-xs text-gray-400 mb-1">Previous emails ({outreachEmails[p.company_id!].length})</p>
+                                      {outreachEmails[p.company_id!].slice(0, 2).map((e) => (
+                                        <div key={e.id} className="text-xs text-gray-500 bg-gray-50 rounded p-2 mt-1">
+                                          <span className="font-medium">{new Date(e.generated_date).toLocaleDateString()}</span>
+                                          {e.contact && <span className="ml-2">→ {e.contact.name}</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

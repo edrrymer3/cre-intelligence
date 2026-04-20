@@ -26,8 +26,10 @@ model Company {
   alerts             Alert[]
   pipeline           Pipeline[]
   filings            Filing[]
-  document_tenants   DocumentTenant[]
+  document_tenants    DocumentTenant[]
   portfolio_locations PortfolioLocation[]
+  contacts            Contact[]
+  outreach_emails     OutreachEmail[]
 }
 
 model REIT {
@@ -180,6 +182,43 @@ model DocumentTenant {
   notes                 String?
   document_property     DocumentProperty @relation(fields: [document_property_id], references: [id])
   matched_company       Company?         @relation(fields: [matched_company_id], references: [id])
+}
+
+model Contact {
+  id           Int             @id @default(autoincrement())
+  company_id   Int
+  name         String?
+  title        String?
+  linkedin_url String?
+  email        String?
+  confidence   String?
+  source       String?
+  notes        String?
+  added_date   DateTime        @default(now())
+  last_updated DateTime        @updatedAt
+  company      Company         @relation(fields: [company_id], references: [id])
+  emails       OutreachEmail[]
+}
+
+model OutreachEmail {
+  id             Int       @id @default(autoincrement())
+  company_id     Int
+  contact_id     Int?
+  subject        String?
+  body           String
+  generated_date DateTime  @default(now())
+  sent           Boolean   @default(false)
+  sent_date      DateTime?
+  notes          String?
+  company        Company   @relation(fields: [company_id], references: [id])
+  contact        Contact?  @relation(fields: [contact_id], references: [id])
+}
+
+model AppSettings {
+  id                    Int     @id @default(autoincrement())
+  weekly_digest_enabled Boolean @default(true)
+  digest_email          String  @default("eddie@rymer.com")
+  commission_rate_psf   Float   @default(2.00)
 }
 
 model User {
