@@ -8,6 +8,10 @@ import { useState } from 'react'
 const navItems = [
   { href: '/dashboard/digest', label: 'Morning Briefing', icon: '☀️' },
   { href: '/dashboard/prospects', label: 'Tenant Prospects', icon: '🏢' },
+  { href: '/dashboard/contacts', label: 'Contacts', icon: '📝' },
+  { href: '/dashboard/clients', label: 'Clients', icon: '🤝' },
+  { href: '/dashboard/market-intel', label: 'Market Intel', icon: '📰' },
+  { href: '/dashboard/reports', label: 'Reports', icon: '📈' },
   { href: '/dashboard/reits', label: 'REIT Watchlist', icon: '📋' },
   { href: '/dashboard/alerts', label: '8-K Alerts', icon: '🔔' },
   { href: '/dashboard/watchlist', label: 'Watchlist Manager', icon: '⚙️' },

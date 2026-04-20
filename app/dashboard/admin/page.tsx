@@ -22,6 +22,7 @@ const SCRIPTS = [
   { id: 'discover-reits', label: 'Run REIT Discovery', description: 'Scans EDGAR SIC 6798 REITs for MN office/industrial presence', icon: '🏗️' },
   { id: 'extract-filings', label: 'Run Filing Extraction', description: 'Downloads 10-Qs and 8-Ks, runs Claude AI extraction', icon: '🤖' },
   { id: 'weekly-digest', label: 'Send Weekly Digest', description: 'Sends the weekly email digest now (ignores schedule)', icon: '📧' },
+  { id: 'market-intelligence', label: 'Run Market Intelligence', description: 'Scans MN CRE market for news, leases, and relocations using Claude', icon: '📰' },
 ]
 
 export default function AdminPage() {

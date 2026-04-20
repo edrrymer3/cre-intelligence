@@ -198,6 +198,7 @@ model Contact {
   last_updated DateTime        @updatedAt
   company      Company         @relation(fields: [company_id], references: [id])
   emails       OutreachEmail[]
+  activities   ContactActivity[]
 }
 
 model OutreachEmail {
@@ -212,6 +213,74 @@ model OutreachEmail {
   notes          String?
   company        Company   @relation(fields: [company_id], references: [id])
   contact        Contact?  @relation(fields: [contact_id], references: [id])
+}
+
+model ContactActivity {
+  id              Int       @id @default(autoincrement())
+  contact_id      Int
+  activity_type   String
+  summary         String
+  activity_date   DateTime
+  added_by        String
+  follow_up_date  DateTime?
+  follow_up_note  String?
+  contact         Contact   @relation(fields: [contact_id], references: [id])
+}
+
+model MarketIntel {
+  id              Int       @id @default(autoincrement())
+  headline        String
+  summary         String
+  category        String
+  relevance_score Int
+  source_url      String?
+  published_date  DateTime?
+  added_date      DateTime  @default(now())
+  reviewed        Boolean   @default(false)
+}
+
+model Client {
+  id             Int             @id @default(autoincrement())
+  name           String
+  industry       String?
+  hq_city        String?
+  hq_state       String?
+  employee_count Int?
+  notes          String?
+  added_by       String
+  added_date     DateTime        @default(now())
+  locations      ClientLocation[]
+  contacts       ClientContact[]
+}
+
+model ClientLocation {
+  id                Int       @id @default(autoincrement())
+  client_id         Int
+  property_name     String?
+  address           String?
+  city              String
+  state             String
+  property_type     String
+  sqft              Int?
+  lease_expiration  DateTime?
+  landlord          String?
+  annual_rent       Float?
+  commission_earned Float?
+  notes             String?
+  client            Client    @relation(fields: [client_id], references: [id])
+}
+
+model ClientContact {
+  id           Int     @id @default(autoincrement())
+  client_id    Int
+  name         String
+  title        String?
+  email        String?
+  phone        String?
+  linkedin_url String?
+  primary      Boolean @default(false)
+  notes        String?
+  client       Client  @relation(fields: [client_id], references: [id])
 }
 
 model AppSettings {

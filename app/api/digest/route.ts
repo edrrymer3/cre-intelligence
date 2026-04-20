@@ -53,6 +53,23 @@ export async function GET() {
     take: 10,
   })
 
+  // Top market intel
+  const topMarketIntel = await prisma.marketIntel.findMany({
+    where: { relevance_score: { gte: 4 }, reviewed: false },
+    orderBy: [{ relevance_score: 'desc' }, { added_date: 'desc' }],
+    take: 3,
+  })
+
+  // Client leases expiring < 18 months
+  const expiringClientLeases = await prisma.clientLocation.findMany({
+    where: {
+      lease_expiration: { gte: now, lte: new Date(now.getTime() + 18 * 30 * 24 * 60 * 60 * 1000) },
+    },
+    include: { client: { select: { name: true } } },
+    orderBy: { lease_expiration: 'asc' },
+    take: 10,
+  })
+
   // Summary counts
   const [totalCompanies, totalProperties, totalREITs, unreviewed] = await Promise.all([
     prisma.company.count({ where: { active: true } }),
@@ -69,5 +86,7 @@ export async function GET() {
     newAlerts,
     pipelineByStatus,
     urgentPortfolioLeases,
+    topMarketIntel,
+    expiringClientLeases,
   })
 }
