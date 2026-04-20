@@ -12,6 +12,8 @@ const navItems = [
   { href: '/dashboard/clients', label: 'Clients', icon: '🤝' },
   { href: '/dashboard/market-intel', label: 'Market Intel', icon: '📰' },
   { href: '/dashboard/reports', label: 'Reports', icon: '📈' },
+  { href: '/dashboard/deals', label: 'Deals', icon: '🤝' },
+  { href: '/dashboard/activity', label: 'Activity Feed', icon: '📰' },
   { href: '/dashboard/reits', label: 'REIT Watchlist', icon: '📋' },
   { href: '/dashboard/alerts', label: '8-K Alerts', icon: '🔔' },
   { href: '/dashboard/watchlist', label: 'Watchlist Manager', icon: '⚙️' },

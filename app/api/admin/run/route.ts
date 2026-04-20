@@ -10,6 +10,7 @@ const SCRIPTS: Record<string, string> = {
   'extract-filings': 'scripts/extract-filings.ts',
   'weekly-digest': 'scripts/weekly-digest.ts',
   'market-intelligence': 'scripts/market-intelligence.ts',
+  'monitor-news': 'scripts/monitor-news.ts',
 }
 
 export async function POST(req: Request) {

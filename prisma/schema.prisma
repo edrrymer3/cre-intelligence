@@ -32,6 +32,10 @@ model Company {
   outreach_emails     OutreachEmail[]
   research_reports    ResearchReport[]
   priority_score      PriorityScore?
+  news                CompanyNews[]
+  team_notes          TeamNote[]
+  team_assignments    TeamAssignment[]
+  deals               Deal[]
 }
 
 model REIT {
@@ -201,6 +205,8 @@ model Contact {
   company      Company         @relation(fields: [company_id], references: [id])
   emails       OutreachEmail[]
   activities   ContactActivity[]
+  team_notes   TeamNote[]
+  team_assignments TeamAssignment[]
 }
 
 model OutreachEmail {
@@ -225,6 +231,107 @@ model ResearchReport {
   opportunity_rating String
   generated_date    DateTime @default(now())
   company           Company  @relation(fields: [company_id], references: [id])
+}
+
+model CompanyNews {
+  id              Int      @id @default(autoincrement())
+  company_id      Int
+  headline        String
+  summary         String
+  relevance_score Int
+  source_url      String?
+  published_date  DateTime?
+  added_date      DateTime @default(now())
+  reviewed        Boolean  @default(false)
+  company         Company  @relation(fields: [company_id], references: [id])
+}
+
+model TeamNote {
+  id           Int      @id @default(autoincrement())
+  company_id   Int?
+  contact_id   Int?
+  client_id    Int?
+  author       String
+  note         String
+  created_date DateTime @default(now())
+  pinned       Boolean  @default(false)
+  company      Company? @relation(fields: [company_id], references: [id])
+  contact      Contact? @relation(fields: [contact_id], references: [id])
+}
+
+model TeamAssignment {
+  id            Int      @id @default(autoincrement())
+  company_id    Int?
+  contact_id    Int?
+  assigned_to   String
+  assigned_by   String
+  assigned_date DateTime @default(now())
+  notes         String?
+  company       Company? @relation(fields: [company_id], references: [id])
+  contact       Contact? @relation(fields: [contact_id], references: [id])
+}
+
+model Deal {
+  id                  Int             @id @default(autoincrement())
+  company_id          Int?
+  client_id           Int?
+  deal_name           String
+  status              String
+  property_type       String?
+  target_city         String?
+  target_state        String?
+  target_sf_min       Int?
+  target_sf_max       Int?
+  target_move_date    DateTime?
+  estimated_value_sf  Float?
+  estimated_commission Float?
+  probability         Int?
+  assigned_to         String?
+  notes               String?
+  created_date        DateTime        @default(now())
+  last_updated        DateTime        @updatedAt
+  company             Company?        @relation(fields: [company_id], references: [id])
+  client              Client?         @relation(fields: [client_id], references: [id])
+  milestones          DealMilestone[]
+  spaces              DealSpace[]
+  comparisons         PropertyComparison[]
+}
+
+model DealMilestone {
+  id             Int      @id @default(autoincrement())
+  deal_id        Int
+  milestone      String
+  due_date       DateTime?
+  completed      Boolean  @default(false)
+  completed_date DateTime?
+  notes          String?
+  deal           Deal     @relation(fields: [deal_id], references: [id])
+}
+
+model DealSpace {
+  id             Int     @id @default(autoincrement())
+  deal_id        Int
+  building_name  String?
+  address        String?
+  city           String?
+  state          String?
+  floor          String?
+  sqft           Int?
+  asking_rate_psf Float?
+  concessions    String?
+  term_years     Int?
+  status         String?
+  notes          String?
+  deal           Deal    @relation(fields: [deal_id], references: [id])
+}
+
+model PropertyComparison {
+  id             Int      @id @default(autoincrement())
+  deal_id        Int
+  spaces         Json
+  ai_analysis    String?
+  generated_date DateTime @default(now())
+  deal           Deal     @relation(fields: [deal_id], references: [id])
 }
 
 model PriorityScore {
@@ -276,6 +383,7 @@ model Client {
   added_date     DateTime        @default(now())
   locations      ClientLocation[]
   contacts       ClientContact[]
+  deals          Deal[]
 }
 
 model ClientLocation {
