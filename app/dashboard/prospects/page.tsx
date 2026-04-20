@@ -47,6 +47,7 @@ export default function ProspectsPage() {
   const [cityFilter, setCityFilter] = useState('')
   const [search, setSearch] = useState('')
   const [triggerFilter, setTriggerFilter] = useState('')
+  const [hasDocument, setHasDocument] = useState(false)
 
   // Sort
   const [sortKey, setSortKey] = useState<string>('opportunity_score')
@@ -57,10 +58,11 @@ export default function ProspectsPage() {
     if (propType) params.set('type', propType)
     if (minScore) params.set('minScore', minScore)
     if (expYear) params.set('expiringBefore', expYear)
+    if (hasDocument) params.set('hasDocument', '1')
     fetch(`/api/properties?${params}`)
       .then((r) => r.json())
       .then((data) => { setProperties(data); setLoading(false) })
-  }, [propType, minScore, expYear])
+  }, [propType, minScore, expYear, hasDocument])
 
   const allTriggers = useMemo(() => {
     const set = new Set<string>()
@@ -220,6 +222,16 @@ export default function ProspectsPage() {
             {allTriggers.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         )}
+        <button
+          onClick={() => setHasDocument((v) => !v)}
+          className={`text-sm px-3 py-2 rounded-lg border transition font-medium ${
+            hasDocument
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'border-gray-300 text-gray-600 hover:border-blue-400'
+          }`}
+        >
+          📄 Has OM / Rent Roll
+        </button>
       </div>
 
       {/* Table */}

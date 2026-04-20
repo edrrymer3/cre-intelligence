@@ -26,6 +26,7 @@ model Company {
   alerts             Alert[]
   pipeline           Pipeline[]
   filings            Filing[]
+  document_tenants   DocumentTenant[]
 }
 
 model REIT {
@@ -98,6 +99,54 @@ model Pipeline {
   added_date    DateTime @default(now())
   last_updated  DateTime @updatedAt
   company       Company  @relation(fields: [company_id], references: [id])
+}
+
+model Document {
+  id             Int                @id @default(autoincrement())
+  file_name      String
+  file_url       String
+  document_type  String
+  uploaded_by    String
+  uploaded_date  DateTime           @default(now())
+  processed      Boolean            @default(false)
+  processed_date DateTime?
+  notes          String?
+  properties     DocumentProperty[]
+}
+
+model DocumentProperty {
+  id             Int              @id @default(autoincrement())
+  document_id    Int
+  property_name  String?
+  address        String?
+  city           String?
+  state          String?
+  property_type  String?
+  total_sqft     Int?
+  asking_price   Float?
+  noi            Float?
+  cap_rate       Float?
+  occupancy_rate Float?
+  year_built     Int?
+  notes          String?
+  tenants        DocumentTenant[]
+  document       Document         @relation(fields: [document_id], references: [id])
+}
+
+model DocumentTenant {
+  id                    Int              @id @default(autoincrement())
+  document_property_id  Int
+  matched_company_id    Int?
+  tenant_name           String?
+  sqft                  Int?
+  lease_expiration_year Int?
+  lease_expiration_month Int?
+  rent_psf              Float?
+  lease_type            String?
+  options               String?
+  notes                 String?
+  document_property     DocumentProperty @relation(fields: [document_property_id], references: [id])
+  matched_company       Company?         @relation(fields: [matched_company_id], references: [id])
 }
 
 model User {
