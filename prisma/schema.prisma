@@ -27,6 +27,7 @@ model Company {
   pipeline           Pipeline[]
   filings            Filing[]
   document_tenants   DocumentTenant[]
+  portfolio_locations PortfolioLocation[]
 }
 
 model REIT {
@@ -99,6 +100,38 @@ model Pipeline {
   added_date    DateTime @default(now())
   last_updated  DateTime @updatedAt
   company       Company  @relation(fields: [company_id], references: [id])
+}
+
+model PortfolioClient {
+  id            Int                    @id @default(autoincrement())
+  name          String
+  industry      String?
+  primary_contact String?
+  contact_email String?
+  contact_phone String?
+  notes         String?
+  added_date    DateTime               @default(now())
+  last_updated  DateTime               @updatedAt
+  locations     PortfolioLocation[]
+}
+
+model PortfolioLocation {
+  id                    Int              @id @default(autoincrement())
+  client_id             Int
+  company_id            Int?
+  property_name         String?
+  address               String?
+  city                  String?
+  state                 String?
+  property_type         String?
+  sqft                  Int?
+  annual_rent           Float?
+  lease_expiration_date DateTime?
+  lease_type            String?
+  landlord              String?
+  notes                 String?
+  client                PortfolioClient  @relation(fields: [client_id], references: [id])
+  company               Company?         @relation(fields: [company_id], references: [id])
 }
 
 model Document {

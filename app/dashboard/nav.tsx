@@ -10,6 +10,7 @@ const navItems = [
   { href: '/dashboard/alerts', label: '8-K Alerts', icon: '🔔' },
   { href: '/dashboard/watchlist', label: 'Watchlist Manager', icon: '⚙️' },
   { href: '/dashboard/pipeline', label: 'My Pipeline', icon: '📊' },
+  { href: '/dashboard/portfolio', label: 'Portfolio', icon: '🏙️' },
   { href: '/dashboard/documents', label: 'Documents', icon: '📁' },
   { href: '/dashboard/admin', label: 'Admin', icon: '🔧' },
 ]
