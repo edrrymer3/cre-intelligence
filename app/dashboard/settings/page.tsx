@@ -7,6 +7,17 @@ interface AppSettings {
   weekly_digest_enabled: boolean
   digest_email: string
   commission_rate_psf: number
+  hubspot_api_key?: string | null
+  hubspot_auto_sync?: boolean
+  hubspot_last_synced?: string | null
+  google_access_token?: string | null
+  google_sync_followups?: boolean
+  google_sync_milestones?: boolean
+  google_sync_lease_alerts?: boolean
+  slack_webhook_url?: string | null
+  slack_notify_alerts?: boolean
+  slack_notify_news?: boolean
+  slack_notify_digest?: boolean
 }
 
 interface User {
@@ -232,6 +243,107 @@ export default function SettingsPage() {
           </div>
         </form>
       </div>
+
+      {/* HubSpot */}
+      {settings && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">🔗 HubSpot CRM</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">HubSpot API Key</label>
+              <input type="password" placeholder="pat-na1-..." value={settings.hubspot_api_key || ''}
+                onChange={(e) => setSettings((p) => p ? { ...p, hubspot_api_key: e.target.value } : p)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div onClick={() => setSettings((p) => p ? { ...p, hubspot_auto_sync: !p.hubspot_auto_sync } : p)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${settings.hubspot_auto_sync ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${settings.hubspot_auto_sync ? 'translate-x-4' : 'translate-x-1'}`} />
+              </div>
+              <span className="text-sm text-gray-700">Auto-sync after every script run</span>
+            </label>
+            {settings.hubspot_last_synced && (
+              <p className="text-xs text-gray-400">Last synced: {new Date(settings.hubspot_last_synced).toLocaleString()}</p>
+            )}
+            <div className="flex gap-3">
+              <button onClick={saveSettings} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">Save</button>
+              <button onClick={async () => {
+                const res = await fetch('/api/hubspot', { method: 'POST' })
+                const data = await res.json()
+                if (res.ok) alert(`Sync complete: ${data.result?.companies?.synced} companies, ${data.result?.contacts?.synced} contacts, ${data.result?.deals?.synced} deals`)
+                else alert(`Error: ${data.error}`)
+              }} className="border border-gray-300 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
+                Sync Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google Calendar */}
+      {settings && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">📅 Google Calendar</h2>
+          {settings.google_access_token ? (
+            <div className="space-y-3">
+              <p className="text-sm text-green-600 font-medium">✓ Connected</p>
+              {[['google_sync_followups', 'Sync follow-up reminders'], ['google_sync_milestones', 'Sync deal milestones'], ['google_sync_lease_alerts', 'Sync client lease expiration alerts']].map(([k, l]) => (
+                <label key={k} className="flex items-center gap-3 cursor-pointer">
+                  <div onClick={() => setSettings((p) => p ? { ...p, [k]: !(p as unknown as Record<string, unknown>)[k] } : p)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${(settings as unknown as Record<string, unknown>)[k] ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${(settings as unknown as Record<string, unknown>)[k] ? 'translate-x-4' : 'translate-x-1'}`} />
+                  </div>
+                  <span className="text-sm text-gray-700">{l}</span>
+                </label>
+              ))}
+              <div className="flex gap-3">
+                <button onClick={saveSettings} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">Save</button>
+                <button onClick={async () => { await fetch('/api/calendar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'disconnect' }) }); window.location.reload() }}
+                  className="border border-red-200 text-red-500 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition">Disconnect</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={async () => { const res = await fetch('/api/calendar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auth_url' }) }); const { url } = await res.json(); window.location.href = url }}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
+              Connect Google Calendar
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Slack */}
+      {settings && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">💬 Slack Notifications</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Slack Webhook URL</label>
+              <input type="text" placeholder="https://hooks.slack.com/services/..." value={settings.slack_webhook_url || ''}
+                onChange={(e) => setSettings((p) => p ? { ...p, slack_webhook_url: e.target.value } : p)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            {[['slack_notify_alerts', '🔴 New 8-K alerts'], ['slack_notify_news', '📰 Company news (score 5)'], ['slack_notify_digest', '📊 Weekly digest summary']].map(([k, l]) => (
+              <label key={k} className="flex items-center gap-3 cursor-pointer">
+                <div onClick={() => setSettings((p) => p ? { ...p, [k]: !(p as unknown as Record<string, unknown>)[k] } : p)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${(settings as unknown as Record<string, unknown>)[k] !== false ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${(settings as unknown as Record<string, unknown>)[k] !== false ? 'translate-x-4' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm text-gray-700">{l}</span>
+              </label>
+            ))}
+            <div className="flex gap-3">
+              <button onClick={saveSettings} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">Save</button>
+              <button onClick={async () => {
+                const res = await fetch('/api/slack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test', webhook_url: settings.slack_webhook_url }) })
+                const data = await res.json()
+                alert(data.ok ? 'Test message sent to Slack ✓' : `Error: ${data.error}`)
+              }} className="border border-gray-300 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
+                Send Test Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

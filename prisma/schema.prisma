@@ -22,6 +22,7 @@ model Company {
   added_by           String?
   added_date         DateTime   @default(now())
   notes              String?
+  hubspot_company_id  String?
   properties         Property[]
   alerts             Alert[]
   pipeline           Pipeline[]
@@ -207,6 +208,7 @@ model Contact {
   activities   ContactActivity[]
   team_notes   TeamNote[]
   team_assignments TeamAssignment[]
+  hubspot_contact_id String?
 }
 
 model OutreachEmail {
@@ -231,6 +233,15 @@ model ResearchReport {
   opportunity_rating String
   generated_date    DateTime @default(now())
   company           Company  @relation(fields: [company_id], references: [id])
+}
+
+model WaitlistEmail {
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  name           String?
+  brokerage      String?
+  market         String?
+  submitted_date DateTime @default(now())
 }
 
 model CompanyNews {
@@ -288,6 +299,7 @@ model Deal {
   probability         Int?
   assigned_to         String?
   notes               String?
+  hubspot_deal_id     String?
   created_date        DateTime        @default(now())
   last_updated        DateTime        @updatedAt
   company             Company?        @relation(fields: [company_id], references: [id])
@@ -417,10 +429,25 @@ model ClientContact {
 }
 
 model AppSettings {
-  id                    Int     @id @default(autoincrement())
-  weekly_digest_enabled Boolean @default(true)
-  digest_email          String  @default("eddie@rymer.com")
-  commission_rate_psf   Float   @default(2.00)
+  id                         Int     @id @default(autoincrement())
+  weekly_digest_enabled      Boolean @default(true)
+  digest_email               String  @default("eddie@rymer.com")
+  commission_rate_psf        Float   @default(2.00)
+  hubspot_api_key            String?
+  hubspot_auto_sync          Boolean @default(false)
+  hubspot_last_synced        DateTime?
+  google_access_token        String?
+  google_refresh_token       String?
+  google_sync_followups      Boolean @default(true)
+  google_sync_milestones     Boolean @default(true)
+  google_sync_lease_alerts   Boolean @default(true)
+  slack_webhook_url          String?
+  slack_notify_alerts        Boolean @default(true)
+  slack_notify_news          Boolean @default(true)
+  slack_notify_research      Boolean @default(true)
+  slack_notify_followups     Boolean @default(true)
+  slack_notify_milestones    Boolean @default(true)
+  slack_notify_digest        Boolean @default(true)
 }
 
 model User {

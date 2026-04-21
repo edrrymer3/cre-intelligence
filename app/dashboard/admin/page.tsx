@@ -302,8 +302,56 @@ export default function AdminPage() {
           <li>• Quarterly discovery: <code>0 6 1 1,4,7,10 *</code> → <code>npx ts-node --skip-project scripts/discover-companies.ts</code></li>
           <li>• Quarterly REIT: <code>0 7 1 1,4,7,10 *</code> → <code>npx ts-node --skip-project scripts/discover-reits.ts</code></li>
           <li>• Quarterly filings: <code>0 8 1 1,4,7,10 *</code> → <code>npx ts-node --skip-project scripts/extract-filings.ts</code></li>
+          <li>• Company news: <code>0 11 * * 1,4</code> → <code>npx ts-node --skip-project scripts/monitor-news.ts</code></li>
+          <li>• HubSpot sync: <code>0 13 * * *</code> → <code>npx ts-node --skip-project scripts/hubspot-sync.ts</code></li>
         </ul>
       </div>
+
+      {/* Waitlist */}
+      <WaitlistSection />
+    </div>
+  )
+}
+
+function WaitlistSection() {
+  const [entries, setEntries] = useState<{ id: number; email: string; name: string | null; brokerage: string | null; market: string | null; submitted_date: string }[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/admin/waitlist').then((r) => r.json()).then((d) => { setEntries(Array.isArray(d) ? d : []); setLoading(false) })
+  }, [])
+
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-800">📮 Waitlist Signups ({entries.length})</h2>
+        <a href="/api/admin/waitlist?format=csv"
+          className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition">
+          ⬇ Export CSV
+        </a>
+      </div>
+      {loading ? (
+        <p className="text-gray-400 text-sm">Loading...</p>
+      ) : entries.length === 0 ? (
+        <p className="text-gray-400 text-sm">No signups yet. Share the landing page to collect interest.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead><tr className="text-xs text-gray-500 border-b border-gray-100">
+            {['Email', 'Name', 'Brokerage', 'Market', 'Date'].map((h) => <th key={h} className="text-left py-2 pr-4">{h}</th>)}
+          </tr></thead>
+          <tbody className="divide-y divide-gray-100">
+            {entries.map((e) => (
+              <tr key={e.id}>
+                <td className="py-2 pr-4 text-blue-600">{e.email}</td>
+                <td className="py-2 pr-4 text-gray-700">{e.name || '—'}</td>
+                <td className="py-2 pr-4 text-gray-600">{e.brokerage || '—'}</td>
+                <td className="py-2 pr-4 text-gray-600">{e.market || '—'}</td>
+                <td className="py-2 text-gray-400 text-xs">{new Date(e.submitted_date).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }
