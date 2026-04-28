@@ -235,6 +235,36 @@ model ResearchReport {
   company           Company  @relation(fields: [company_id], references: [id])
 }
 
+model PrivateCompany {
+  id                Int                     @id @default(autoincrement())
+  name              String
+  industry          String?
+  hq_city           String?
+  hq_state          String?
+  employee_count    Int?
+  estimated_sf      Int?
+  location_count    Int?
+  source            String                  @default("manual")
+  added_by          String?
+  added_date        DateTime                @default(now())
+  notes             String?
+  active            Boolean                 @default(true)
+  opportunity_score Int?
+  locations         PrivateCompanyLocation[]
+}
+
+model PrivateCompanyLocation {
+  id               Int            @id @default(autoincrement())
+  company_id       Int
+  city             String
+  state            String
+  property_type    String?
+  sqft             Int?
+  lease_expiration Int?
+  notes            String?
+  company          PrivateCompany @relation(fields: [company_id], references: [id])
+}
+
 model WaitlistEmail {
   id             Int      @id @default(autoincrement())
   email          String   @unique
