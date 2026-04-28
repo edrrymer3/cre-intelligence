@@ -127,7 +127,7 @@ ${context}`
     async start(controller) {
       try {
         const response = await client.messages.create({
-          model: 'claude-opus-4-5',
+          model: 'claude-sonnet-4-5',
           max_tokens: 1024,
           system: systemPrompt,
           messages,

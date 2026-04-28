@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   ).join('\n\n')
 
   const msg = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-sonnet-4-5',
     max_tokens: 2048,
     messages: [{
       role: 'user',

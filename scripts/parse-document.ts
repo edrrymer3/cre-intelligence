@@ -18,7 +18,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 async function parseOM(pdfText: string) {
   const msg = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-sonnet-4-5',
     max_tokens: 4096,
     messages: [
       {
@@ -67,7 +67,7 @@ ${pdfText.slice(0, 60000)}`,
 
 async function parseRentRoll(pdfText: string) {
   const msg = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-sonnet-4-5',
     max_tokens: 4096,
     messages: [
       {

@@ -31,7 +31,7 @@ export async function findContacts(
   const query = `${companyName}${ticker ? ` (${ticker})` : ''} decision maker contacts: ${TARGET_TITLES.slice(0, 5).join(', ')}`
 
   const message = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-haiku-4-5',
     max_tokens: 2048,
     messages: [
       {

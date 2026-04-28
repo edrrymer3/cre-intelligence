@@ -2,6 +2,16 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// Model tiers — swap here to control cost
+// Opus: ~$15/MTok in, $75/MTok out  — use only where quality is critical
+// Sonnet: ~$3/MTok in, $15/MTok out — good balance for most tasks
+// Haiku: ~$0.25/MTok in, $1.25/MTok out — fast, cheap, great for simple tasks
+const MODELS = {
+  heavy: 'claude-opus-4-5',    // Deep research, complex extraction only
+  medium: 'claude-sonnet-4-5', // Outreach emails, analysis
+  light: 'claude-haiku-4-5',   // Summaries, subject lines, LinkedIn, simple tasks
+}
+
 export interface ExtractedProperty {
   tenant_name?: string
   property_type: string
@@ -18,12 +28,13 @@ export interface ExtractedProperty {
   recommended_action?: string
 }
 
+// FILING EXTRACTION — downgraded from Opus to Sonnet (5x cheaper, same quality for structured extraction)
 export async function extractFilingData(
   filingText: string,
   companyName: string
 ): Promise<ExtractedProperty[]> {
   const message = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: MODELS.medium,
     max_tokens: 4096,
     messages: [
       {
@@ -63,9 +74,10 @@ ${filingText.slice(0, 50000)}`,
   }
 }
 
+// FILING SUMMARY — Haiku is plenty for summaries
 export async function summarizeFiling(filingText: string, companyName: string): Promise<string> {
   const message = await client.messages.create({
-    model: 'claude-haiku-4-5',
+    model: MODELS.light,
     max_tokens: 512,
     messages: [
       {
@@ -82,6 +94,7 @@ export interface OutreachResult {
   body: string
 }
 
+// OUTREACH EMAIL — downgraded from Opus to Sonnet (5x cheaper, still great quality)
 export async function generateOutreachEmail(params: {
   contactName: string | null
   companyName: string
@@ -94,13 +107,14 @@ export async function generateOutreachEmail(params: {
 }): Promise<OutreachResult> {
   const { contactName, companyName, propertyType, city, state, leaseExpirationYear, realEstateStrategy, triggerEvents } = params
 
-  const bodyMsg = await client.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 512,
-    messages: [
-      {
-        role: 'user',
-        content: `You are an expert commercial real estate tenant representative broker.
+  const [bodyMsg, subjectMsg] = await Promise.all([
+    client.messages.create({
+      model: MODELS.medium,
+      max_tokens: 512,
+      messages: [
+        {
+          role: 'user',
+          content: `You are an expert commercial real estate tenant representative broker.
 Write a personalized cold outreach email to ${contactName || 'the decision maker'} at ${companyName}.
 Use the following intelligence gathered from their SEC filings:
 - Property type: ${propertyType}
@@ -118,20 +132,20 @@ The email should:
 - Never mention SEC filings or EDGAR directly
 
 Return the email body only — no subject line, no commentary.`,
-      },
-    ],
-  })
-
-  const subjectMsg = await client.messages.create({
-    model: 'claude-haiku-4-5',
-    max_tokens: 80,
-    messages: [
-      {
-        role: 'user',
-        content: `Write a concise, personalized email subject line for a cold outreach to ${companyName} about their ${propertyType} lease in ${city || 'the Twin Cities'} expiring ${leaseExpirationYear || 'soon'}. Return subject line text only, no quotes.`,
-      },
-    ],
-  })
+        },
+      ],
+    }),
+    client.messages.create({
+      model: MODELS.light,
+      max_tokens: 80,
+      messages: [
+        {
+          role: 'user',
+          content: `Write a concise, personalized email subject line for a cold outreach to ${companyName} about their ${propertyType} lease in ${city || 'the Twin Cities'} expiring ${leaseExpirationYear || 'soon'}. Return subject line text only, no quotes.`,
+        },
+      ],
+    }),
+  ])
 
   const body = bodyMsg.content[0].type === 'text' ? bodyMsg.content[0].text.trim() : ''
   const subject = subjectMsg.content[0].type === 'text' ? subjectMsg.content[0].text.trim() : `${companyName} — lease planning`
@@ -139,6 +153,7 @@ Return the email body only — no subject line, no commentary.`,
   return { subject, body }
 }
 
+// LINKEDIN — Haiku handles short messages perfectly
 export async function generateLinkedInMessages(params: {
   contactName: string | null
   contactTitle: string | null
@@ -153,51 +168,19 @@ export async function generateLinkedInMessages(params: {
 
   const [connMsg, followUpMsg] = await Promise.all([
     client.messages.create({
-      model: 'claude-haiku-4-5',
+      model: MODELS.light,
       max_tokens: 200,
       messages: [{
         role: 'user',
-        content: `You are an expert commercial real estate tenant representative broker.
-Write a personalized LinkedIn connection request message to ${contactName || 'the decision maker'}, ${contactTitle || 'executive'} at ${companyName}.
-
-Use this intelligence:
-- Property type: ${propertyType}
-- Location: ${city || 'Twin Cities'}
-- Lease expiration: ${leaseExpirationYear || 'upcoming'}
-- Real estate strategy: ${realEstateStrategy || 'not specified'}
-- Trigger events: ${triggerEvents.join('; ') || 'none'}
-
-Rules:
-- Maximum 300 characters — LinkedIn connection request limit
-- Sound like a peer reaching out, not a salesperson
-- Reference one specific and relevant piece of intelligence naturally
-- Do not mention SEC filings or EDGAR
-- End with a reason to connect, not an ask
-
-Return the message only, no commentary.`,
+        content: `Write a personalized LinkedIn connection request (max 300 chars) to ${contactName || 'the decision maker'} at ${companyName}. Property: ${propertyType} in ${city || 'Twin Cities'}, lease expiring ${leaseExpirationYear || 'soon'}. Sound like a peer, reference one insight, end with reason to connect. No SEC/EDGAR mention.`,
       }],
     }),
     client.messages.create({
-      model: 'claude-haiku-4-5',
+      model: MODELS.light,
       max_tokens: 200,
       messages: [{
         role: 'user',
-        content: `You are an expert commercial real estate tenant representative broker.
-Write a LinkedIn follow-up message to ${contactName || 'the decision maker'} at ${companyName} who just accepted your connection request.
-
-Use this intelligence:
-- Property type: ${propertyType}
-- Lease expiration: ${leaseExpirationYear || 'upcoming'}
-- Real estate strategy: ${realEstateStrategy || 'not specified'}
-
-Rules:
-- Maximum 500 characters
-- Warm and conversational — not a pitch
-- Acknowledge the connection
-- Soft ask for a brief conversation
-- Do not mention SEC filings or EDGAR
-
-Return the message only, no commentary.`,
+        content: `Write a LinkedIn follow-up (max 500 chars) to ${contactName || 'the decision maker'} at ${companyName} who accepted your connection. Warm, not a pitch, soft ask for a call. Property: ${propertyType}, lease expiring ${leaseExpirationYear || 'soon'}. No SEC/EDGAR mention.`,
       }],
     }),
   ])
@@ -208,9 +191,10 @@ Return the message only, no commentary.`,
   }
 }
 
+// DEEP RESEARCH — kept on Opus, this is where quality matters most
 export async function generateDeepResearch(companyName: string, ticker: string | null): Promise<{ report: string; rating: string }> {
   const msg = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: MODELS.heavy,
     max_tokens: 4096,
     messages: [{
       role: 'user',
