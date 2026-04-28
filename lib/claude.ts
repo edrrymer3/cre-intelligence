@@ -224,3 +224,188 @@ OPPORTUNITY_RATING: [Hot|Warm|Watch]`,
 
   return { report, rating }
 }
+
+// ─── PROPOSAL FINANCIAL ANALYZER ─────────────────────────────────────────────
+
+export interface ProposalData {
+  landlord: string | null
+  building_name: string | null
+  city: string | null
+  state: string | null
+  sqft: number | null
+  term_years: number | null
+  base_rent_psf: number | null
+  rent_escalation: number | null
+  free_rent_months: number | null
+  ti_psf: number | null
+  other_concessions: string | null
+  summary: string
+}
+
+export async function analyzeProposal(text: string, filename: string): Promise<ProposalData> {
+  const msg = await client.messages.create({
+    model: MODELS.medium,
+    max_tokens: 2048,
+    messages: [{
+      role: 'user',
+      content: `You are a commercial real estate financial analyst. Extract the key economic terms from this lease proposal document.
+
+Return valid JSON only — no commentary:
+{
+  "landlord": string or null,
+  "building_name": string or null,
+  "city": string or null,
+  "state": string or null,
+  "sqft": number or null,
+  "term_years": number or null,
+  "base_rent_psf": number or null (annual $/SF),
+  "rent_escalation": number or null (annual % increase),
+  "free_rent_months": number or null,
+  "ti_psf": number or null (tenant improvement allowance $/SF),
+  "other_concessions": string or null,
+  "summary": string (2-3 sentence plain English summary of the deal economics)
+}
+
+Document: ${filename}
+Content:
+${text.slice(0, 30000)}`
+    }],
+  })
+  const raw = msg.content[0].type === 'text' ? msg.content[0].text : ''
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) return { landlord: null, building_name: null, city: null, state: null, sqft: null, term_years: null, base_rent_psf: null, rent_escalation: null, free_rent_months: null, ti_psf: null, other_concessions: null, summary: 'Could not parse proposal.' }
+  try { return JSON.parse(match[0]) } catch { return { landlord: null, building_name: null, city: null, state: null, sqft: null, term_years: null, base_rent_psf: null, rent_escalation: null, free_rent_months: null, ti_psf: null, other_concessions: null, summary: 'Parse error.' } }
+}
+
+export function calculateProposalMetrics(proposal: ProposalData, discountRate = 0.07): { totalCost: number; effectiveRentPsf: number; npv: number } {
+  const sqft = proposal.sqft || 0
+  const term = proposal.term_years || 0
+  const baseRent = proposal.base_rent_psf || 0
+  const escalation = (proposal.rent_escalation || 3) / 100
+  const freeRent = proposal.free_rent_months || 0
+  const ti = proposal.ti_psf || 0
+
+  if (!sqft || !term || !baseRent) return { totalCost: 0, effectiveRentPsf: 0, npv: 0 }
+
+  // Total gross rent over term
+  let totalRent = 0
+  for (let y = 0; y < term; y++) {
+    totalRent += baseRent * Math.pow(1 + escalation, y) * sqft
+  }
+
+  // Subtract free rent value
+  const freeRentValue = baseRent * sqft * (freeRent / 12)
+  const totalCost = totalRent - freeRentValue - (ti * sqft)
+  const effectiveRentPsf = totalCost / (sqft * term)
+
+  // NPV of rent payments
+  let npv = 0
+  for (let y = 0; y < term; y++) {
+    const yearRent = baseRent * Math.pow(1 + escalation, y) * sqft
+    const freeRentThisYear = y === 0 ? freeRentValue : 0
+    npv += (yearRent - freeRentThisYear) / Math.pow(1 + discountRate, y + 1)
+  }
+  npv -= ti * sqft
+
+  return { totalCost: Math.round(totalCost), effectiveRentPsf: Math.round(effectiveRentPsf * 100) / 100, npv: Math.round(npv) }
+}
+
+// ─── RFP RESPONSE GENERATOR ──────────────────────────────────────────────────
+
+export async function generateRFPResponse(params: {
+  rfpText: string
+  companyName: string
+  propertyType: string
+  targetSF: string
+  targetCity: string
+  exampleResponses: string[]
+  filingIntel?: string
+}): Promise<string> {
+  const { rfpText, companyName, propertyType, targetSF, targetCity, exampleResponses, filingIntel } = params
+
+  const exampleContext = exampleResponses.length > 0
+    ? `\n\nEXAMPLE WINNING RESPONSES TO LEARN FROM:\n${exampleResponses.map((r, i) => `[Example ${i + 1}]:\n${r.slice(0, 2000)}`).join('\n\n')}`
+    : ''
+
+  const msg = await client.messages.create({
+    model: MODELS.medium,
+    max_tokens: 4096,
+    messages: [{
+      role: 'user',
+      content: `You are writing a commercial real estate tenant rep RFP response for JLL on behalf of ${companyName}.
+
+RFP REQUIREMENTS:
+${rfpText.slice(0, 8000)}
+
+TENANT CONTEXT:
+- Company: ${companyName}
+- Property Type: ${propertyType}
+- Target SF: ${targetSF}
+- Target City: ${targetCity}
+${filingIntel ? `- Intel from SEC filings: ${filingIntel}` : ''}
+${exampleContext}
+
+Write a professional, compelling RFP response that:
+- Matches the structure and tone of the example responses if provided
+- Highlights JLL's expertise in tenant representation
+- Addresses the specific requirements in the RFP
+- Positions Eddie Rymer and the team as the right choice
+- Includes sections: Executive Summary, Our Approach, Team & Experience, Market Knowledge, Timeline, Why JLL
+
+Return the full RFP response formatted in markdown.`,
+    }],
+  })
+  return msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
+}
+
+// ─── PITCH DECK GENERATOR ─────────────────────────────────────────────────────
+
+export async function generatePitchDeck(params: {
+  companyName: string
+  propertyType: string
+  city: string | null
+  sqft: number | null
+  leaseExpirationYear: number | null
+  triggerEvents: string[]
+  realEstateStrategy: string | null
+  opportunityScore: number | null
+  templateContent?: string
+}): Promise<string> {
+  const { companyName, propertyType, city, sqft, leaseExpirationYear, triggerEvents, realEstateStrategy, opportunityScore, templateContent } = params
+
+  const msg = await client.messages.create({
+    model: MODELS.medium,
+    max_tokens: 4096,
+    messages: [{
+      role: 'user',
+      content: `You are creating a prospect-specific pitch deck outline for JLL's tenant rep team targeting ${companyName}.
+
+PROSPECT INTELLIGENCE (from SEC filings):
+- Property Type: ${propertyType}
+- Location: ${city || 'Twin Cities'}
+- Current SF: ${sqft ? sqft.toLocaleString() : 'unknown'}
+- Lease Expiration: ${leaseExpirationYear || 'upcoming'}
+- Trigger Events: ${triggerEvents.join(', ') || 'none identified'}
+- Real Estate Strategy: ${realEstateStrategy || 'not specified'}
+- Opportunity Score: ${opportunityScore || 'N/A'}/5
+
+${templateContent ? `PITCH TEMPLATE TO FOLLOW:\n${templateContent.slice(0, 3000)}` : ''}
+
+Create a compelling, personalized pitch deck outline with the following slides:
+1. Title slide
+2. Why Now — specific to their situation (lease expiration, trigger events)
+3. Market Overview — Twin Cities ${propertyType} market snapshot
+4. Our Process — tenant rep process tailored to their needs
+5. Market Options — types of spaces/strategies available to them
+6. Financial Analysis — what savings we can deliver
+7. JLL Team — Eddie Rymer and team credentials
+8. Case Studies — 2-3 relevant deals we've done
+9. Timeline — recommended action plan given their expiration date
+10. Next Steps
+
+For each slide include: slide title, key talking points (3-5 bullets), and any specific data to include.
+Format in clean markdown.`,
+    }],
+  })
+  return msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
+}

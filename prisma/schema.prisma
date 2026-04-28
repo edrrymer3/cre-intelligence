@@ -235,6 +235,66 @@ model ResearchReport {
   company           Company  @relation(fields: [company_id], references: [id])
 }
 
+model ProposalAnalysis {
+  id              Int      @id @default(autoincrement())
+  deal_id         Int?
+  file_name       String
+  file_url        String?
+  landlord        String?
+  building_name   String?
+  city            String?
+  state           String?
+  sqft            Int?
+  term_years      Int?
+  base_rent_psf   Float?
+  rent_escalation Float?
+  free_rent_months Int?
+  ti_psf          Float?
+  other_concessions String?
+  total_cost      Float?
+  effective_rent_psf Float?
+  npv             Float?
+  ai_summary      String?
+  raw_data        Json?
+  created_date    DateTime @default(now())
+  uploaded_by     String?
+}
+
+model RFPTemplate {
+  id           Int      @id @default(autoincrement())
+  name         String
+  file_name    String?
+  content      String
+  is_example   Boolean  @default(false)
+  added_date   DateTime @default(now())
+}
+
+model RFPResponse {
+  id             Int      @id @default(autoincrement())
+  company_id     Int?
+  deal_id        Int?
+  title          String
+  content        String
+  generated_date DateTime @default(now())
+  notes          String?
+}
+
+model PitchTemplate {
+  id         Int      @id @default(autoincrement())
+  name       String
+  content    String
+  added_date DateTime @default(now())
+}
+
+model PitchDeck {
+  id             Int      @id @default(autoincrement())
+  company_id     Int?
+  title          String
+  content        String
+  generated_date DateTime @default(now())
+  notes          String?
+}
+
 model PrivateCompany {
   id                Int                     @id @default(autoincrement())
   name              String

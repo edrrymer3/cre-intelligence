@@ -19,6 +19,7 @@ const navItems = [
   { href: '/dashboard/watchlist', label: 'Watchlist Manager', icon: '⚙️' },
   { href: '/dashboard/pipeline', label: 'My Pipeline', icon: '📊' },
   { href: '/dashboard/email-templates', label: 'Email Templates', icon: '✉️' },
+  { href: '/dashboard/proposals', label: 'Proposals & Pitches', icon: '💼' },
   { href: '/dashboard/portfolio', label: 'Portfolio', icon: '🏙️' },
   { href: '/dashboard/documents', label: 'Documents', icon: '📁' },
   { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },
