@@ -235,6 +235,71 @@ model ResearchReport {
   company           Company  @relation(fields: [company_id], references: [id])
 }
 
+model Tour {
+  id              Int          @id @default(autoincrement())
+  title           String
+  client_name     String
+  client_email    String?
+  deal_id         Int?
+  tour_date       DateTime?
+  share_token     String       @unique @default(cuid())
+  notes           String?
+  created_by      String?
+  created_date    DateTime     @default(now())
+  last_updated    DateTime     @updatedAt
+  spaces          TourSpace[]
+}
+
+model TourSpace {
+  id                Int          @id @default(autoincrement())
+  tour_id           Int
+  order_index       Int          @default(0)
+  building_name     String?
+  address           String?
+  city              String?
+  state             String?
+  floor             String?
+  sqft              Int?
+  asking_rate_psf   Float?
+  lease_type        String?
+  term_years        Int?
+  available_date    String?
+  landlord          String?
+  landlord_rep      String?
+  amenities         String?
+  parking           String?
+  transit_score     String?
+  virtual_tour_url  String?
+  building_url      String?
+  floor_plan_url    String?
+  notes             String?
+  broker_rating     Int?
+  status            String       @default("Active")
+  photos            TourPhoto[]
+  custom_fields     Json?
+  tour              Tour         @relation(fields: [tour_id], references: [id])
+}
+
+model TourPhoto {
+  id           Int       @id @default(autoincrement())
+  space_id     Int
+  url          String
+  caption      String?
+  is_primary   Boolean   @default(false)
+  uploaded_at  DateTime  @default(now())
+  space        TourSpace @relation(fields: [space_id], references: [id])
+}
+
+model ClientComment {
+  id           Int       @id @default(autoincrement())
+  tour_id      Int
+  space_id     Int?
+  comment      String
+  rating       Int?
+  client_name  String?
+  created_at   DateTime  @default(now())
+}
+
 model ProposalAnalysis {
   id              Int      @id @default(autoincrement())
   deal_id         Int?
