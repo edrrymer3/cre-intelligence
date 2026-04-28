@@ -3,7 +3,7 @@ services:
     name: cre-intelligence
     env: node
     buildCommand: npm install && npm run build
-    startCommand: node node_modules/.bin/next start -p $PORT
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
