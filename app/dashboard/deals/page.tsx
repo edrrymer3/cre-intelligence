@@ -16,16 +16,16 @@ interface Deal {
   _count: { milestones: number; spaces: number }
 }
 
-const ACTIVE_STATUSES = ['Contacted', 'Meeting Set', 'Proposal', 'Touring', 'Negotiating', 'LOI', 'Lease Execution']
+const ACTIVE_STATUSES = ['Prospecting', 'Contacted', 'Meeting Set', 'Proposal', 'Touring', 'Negotiating', 'LOI', 'Lease Execution']
 const ARCHIVED_STATUSES = ['Closed', 'Lost']
 const STATUSES = [...ACTIVE_STATUSES, ...ARCHIVED_STATUSES]
 const STATUS_COLORS: Record<string, string> = {
-  'Contacted': 'bg-gray-50', 'Meeting Set': 'bg-blue-50', 'Proposal': 'bg-indigo-50',
+  'Prospecting': 'bg-gray-50', 'Contacted': 'bg-gray-100', 'Meeting Set': 'bg-blue-50', 'Proposal': 'bg-indigo-50',
   'Touring': 'bg-yellow-50', 'Negotiating': 'bg-orange-50', 'LOI': 'bg-purple-50',
   'Lease Execution': 'bg-green-50', 'Closed': 'bg-green-100', 'Lost': 'bg-red-50',
 }
 const STATUS_HEADER: Record<string, string> = {
-  'Contacted': 'text-gray-600 bg-gray-200', 'Meeting Set': 'text-blue-700 bg-blue-100',
+  'Prospecting': 'text-gray-500 bg-gray-100', 'Contacted': 'text-gray-700 bg-gray-200', 'Meeting Set': 'text-blue-700 bg-blue-100',
   'Proposal': 'text-indigo-700 bg-indigo-100', 'Touring': 'text-yellow-700 bg-yellow-100',
   'Negotiating': 'text-orange-700 bg-orange-100', 'LOI': 'text-purple-700 bg-purple-100',
   'Lease Execution': 'text-green-700 bg-green-100', 'Closed': 'text-green-800 bg-green-200', 'Lost': 'text-red-700 bg-red-100',
