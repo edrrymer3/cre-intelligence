@@ -14,7 +14,9 @@ interface Deal {
   _count: { milestones: number; spaces: number }
 }
 
-const STATUSES = ['Prospecting', 'RFP', 'Touring', 'Negotiating', 'LOI', 'Lease Execution', 'Closed', 'Lost']
+const ACTIVE_STATUSES = ['Prospecting', 'RFP', 'Touring', 'Negotiating', 'LOI', 'Lease Execution']
+const ARCHIVED_STATUSES = ['Closed', 'Lost']
+const STATUSES = [...ACTIVE_STATUSES, ...ARCHIVED_STATUSES]
 const STATUS_COLORS: Record<string, string> = {
   'Prospecting': 'bg-gray-100', 'RFP': 'bg-blue-50', 'Touring': 'bg-yellow-50',
   'Negotiating': 'bg-orange-50', 'LOI': 'bg-purple-50', 'Lease Execution': 'bg-green-50',
@@ -37,6 +39,7 @@ export default function DealsPage() {
   const [selectedSpaces, setSelectedSpaces] = useState<number[]>([])
   const [comparing, setComparing] = useState<{ dealId: number; analysis: string; spaces: DealSpace[] } | null>(null)
   const [comparingLoading, setComparingLoading] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   // Stats
   const stats = useMemo(() => {
@@ -158,6 +161,10 @@ export default function DealsPage() {
             <button onClick={() => setViewMode('kanban')} className={`px-4 py-2 transition ${viewMode === 'kanban' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>Kanban</button>
             <button onClick={() => setViewMode('list')} className={`px-4 py-2 transition ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>List</button>
           </div>
+          <button onClick={() => setShowArchived(!showArchived)}
+            className={`px-4 py-2 rounded-lg text-sm border transition ${showArchived ? 'bg-gray-700 text-white border-gray-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+            {showArchived ? '← Active Deals' : '📂 Archive'}
+          </button>
           <button onClick={() => setShowAddDeal(!showAddDeal)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">+ New Deal</button>
         </div>
       </div>
@@ -181,10 +188,42 @@ export default function DealsPage() {
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">Loading deals...</div>
+      ) : showArchived ? (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-700">Archived Deals — {deals.filter((d) => ARCHIVED_STATUSES.includes(d.status)).length} total</h2>
+          </div>
+          <table className="w-full text-sm">
+            <thead><tr className="bg-gray-50 border-b border-gray-200">
+              {['Deal','Client / Company','Status','City','SF','Commission','Date'].map((h) => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100">
+              {deals.filter((d) => ARCHIVED_STATUSES.includes(d.status)).length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-12 text-gray-400">No archived deals yet. Closed or Lost deals appear here.</td></tr>
+              ) : deals.filter((d) => ARCHIVED_STATUSES.includes(d.status)).map((deal) => (
+                <tr key={deal.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{deal.deal_name}</td>
+                  <td className="px-4 py-3 text-gray-500">{deal.client?.name || deal.company?.name || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      deal.status === 'Closed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'
+                    }`}>{deal.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{deal.target_city || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{deal.target_sf_max ? `${deal.target_sf_max.toLocaleString()} SF` : '—'}</td>
+                  <td className="px-4 py-3 font-medium text-green-700">{deal.estimated_commission ? `$${deal.estimated_commission.toLocaleString()}` : '—'}</td>
+                  <td className="px-4 py-3 text-xs text-gray-400">{new Date(deal.last_updated).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : viewMode === 'kanban' ? (
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="flex gap-3 overflow-x-auto pb-4">
-            {STATUSES.map((status) => {
+            {ACTIVE_STATUSES.map((status) => {
               const statusDeals = byStatus(status)
               return (
                 <div key={status} className="flex-shrink-0 w-52">
@@ -236,9 +275,9 @@ export default function DealsPage() {
               ))}
             </tr></thead>
             <tbody className="divide-y divide-gray-100">
-              {deals.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-400">No deals yet. Create one above.</td></tr>
-              ) : deals.map((deal) => (
+              {deals.filter((d) => !ARCHIVED_STATUSES.includes(d.status)).length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-12 text-gray-400">No active deals. Create one above.</td></tr>
+              ) : deals.filter((d) => !ARCHIVED_STATUSES.includes(d.status)).map((deal) => (
                 <tr key={deal.id} onClick={() => setExpandedId(expandedId === deal.id ? null : deal.id)} className="hover:bg-gray-50 cursor-pointer">
                   <td className="px-4 py-3 font-medium text-gray-900">{deal.company?.name || deal.deal_name}</td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_HEADER[deal.status]}`}>{deal.status}</span></td>
