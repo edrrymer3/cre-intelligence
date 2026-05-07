@@ -21,6 +21,7 @@ const navItems = [
   { href: '/dashboard/email-templates', label: 'Email Templates', icon: '✉️' },
   { href: '/dashboard/proposals', label: 'Proposals & Pitches', icon: '💼' },
   { href: '/dashboard/tours', label: 'Tour Cards', icon: '🏙️' },
+  { href: '/dashboard/surveys', label: 'Building Surveys', icon: '📋' },
   { href: '/dashboard/portfolio', label: 'Portfolio', icon: '🏙️' },
   { href: '/dashboard/documents', label: 'Documents', icon: '📁' },
   { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },

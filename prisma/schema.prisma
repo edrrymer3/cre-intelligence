@@ -235,6 +235,58 @@ model ResearchReport {
   company           Company  @relation(fields: [company_id], references: [id])
 }
 
+model BuildingSurvey {
+  id                  Int                    @id @default(autoincrement())
+  address             String
+  building_name       String?
+  city                String?
+  state               String               @default("MN")
+  zip                 String?
+  property_type       String?              // office, industrial, flex
+  building_class      String?              // A, B, C
+  total_sf            Int?
+  floors              Int?
+  year_built          Int?
+  year_renovated      Int?
+  parking_ratio       String?
+  owner               String?
+  landlord            String?
+  property_manager    String?
+  amenities           String?
+  notes               String?
+  source_file         String?              // original PDF filename
+  added_date          DateTime             @default(now())
+  added_by            String?
+  history             BuildingSurveyYear[]
+  photos              BuildingSurveyPhoto[]
+}
+
+model BuildingSurveyYear {
+  id               Int           @id @default(autoincrement())
+  survey_id        Int
+  year             Int
+  asking_rate_psf  Float?
+  effective_rate_psf Float?
+  cam_psf          Float?
+  tax_psf          Float?
+  insurance_psf    Float?
+  total_nnn_psf    Float?
+  occupancy_rate   Float?
+  free_rent_months Int?
+  ti_psf           Float?
+  notes            String?
+  survey           BuildingSurvey @relation(fields: [survey_id], references: [id])
+}
+
+model BuildingSurveyPhoto {
+  id          Int            @id @default(autoincrement())
+  survey_id   Int
+  url         String
+  caption     String?
+  uploaded_at DateTime       @default(now())
+  survey      BuildingSurvey @relation(fields: [survey_id], references: [id])
+}
+
 model Tour {
   id              Int          @id @default(autoincrement())
   title           String

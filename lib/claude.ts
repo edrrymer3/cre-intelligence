@@ -409,3 +409,109 @@ Format in clean markdown.`,
   })
   return msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
 }
+
+// ─── BUILDING SURVEY EXTRACTOR ────────────────────────────────────────────────
+
+export interface ExtractedSurvey {
+  address: string | null
+  building_name: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  property_type: string | null
+  building_class: string | null
+  total_sf: number | null
+  floors: number | null
+  year_built: number | null
+  year_renovated: number | null
+  parking_ratio: string | null
+  owner: string | null
+  landlord: string | null
+  property_manager: string | null
+  amenities: string | null
+  notes: string | null
+  history: {
+    year: number
+    asking_rate_psf: number | null
+    effective_rate_psf: number | null
+    cam_psf: number | null
+    tax_psf: number | null
+    insurance_psf: number | null
+    total_nnn_psf: number | null
+    occupancy_rate: number | null
+    free_rent_months: number | null
+    ti_psf: number | null
+    notes: string | null
+  }[]
+}
+
+export async function extractBuildingSurvey(text: string, filename: string): Promise<ExtractedSurvey> {
+  const msg = await client.messages.create({
+    model: MODELS.medium,
+    max_tokens: 4096,
+    messages: [{
+      role: 'user',
+      content: `You are a commercial real estate analyst extracting building survey data.
+
+Extract all available information from this property survey document: "${filename}"
+
+Return valid JSON only — no commentary, no markdown:
+{
+  "address": string or null,
+  "building_name": string or null,
+  "city": string or null,
+  "state": string or null (2-letter),
+  "zip": string or null,
+  "property_type": "office" | "industrial" | "flex" | "retail" | null,
+  "building_class": "A" | "B" | "C" | null,
+  "total_sf": number or null,
+  "floors": number or null,
+  "year_built": number or null,
+  "year_renovated": number or null,
+  "parking_ratio": string or null (e.g. "3/1000 SF"),
+  "owner": string or null,
+  "landlord": string or null,
+  "property_manager": string or null,
+  "amenities": string or null (comma separated list),
+  "notes": string or null,
+  "history": [
+    {
+      "year": number,
+      "asking_rate_psf": number or null (annual $/SF),
+      "effective_rate_psf": number or null,
+      "cam_psf": number or null (annual $/SF),
+      "tax_psf": number or null (annual $/SF),
+      "insurance_psf": number or null,
+      "total_nnn_psf": number or null,
+      "occupancy_rate": number or null (percentage 0-100),
+      "free_rent_months": number or null,
+      "ti_psf": number or null,
+      "notes": string or null
+    }
+  ]
+}
+
+Include ALL years of historical data found. Return null for unknown fields.
+
+Document text:
+${text.slice(0, 40000)}`
+    }],
+  })
+
+  const raw = msg.content[0].type === 'text' ? msg.content[0].text : ''
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) return {
+    address: null, building_name: null, city: null, state: null, zip: null,
+    property_type: null, building_class: null, total_sf: null, floors: null,
+    year_built: null, year_renovated: null, parking_ratio: null, owner: null,
+    landlord: null, property_manager: null, amenities: null, notes: null, history: []
+  }
+  try { return JSON.parse(match[0]) } catch {
+    return {
+      address: null, building_name: null, city: null, state: null, zip: null,
+      property_type: null, building_class: null, total_sf: null, floors: null,
+      year_built: null, year_renovated: null, parking_ratio: null, owner: null,
+      landlord: null, property_manager: null, amenities: null, notes: null, history: []
+    }
+  }
+}
