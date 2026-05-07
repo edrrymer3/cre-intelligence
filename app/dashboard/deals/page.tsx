@@ -33,6 +33,209 @@ const STATUS_HEADER: Record<string, string> = {
 
 function daysSince(date: string) { return Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)) }
 
+function fmtPSF(n: number | null) { return n ? `$${n.toFixed(2)}/SF` : '—' }
+function fmtDollars(n: number | null) { return n ? `$${Math.round(n).toLocaleString()}` : '—' }
+
+interface Proposal {
+  id: number; file_name: string; building_name: string | null; landlord: string | null
+  city: string | null; state: string | null; sqft: number | null; term_years: number | null
+  base_rent_psf: number | null; rent_escalation: number | null; free_rent_months: number | null
+  ti_psf: number | null; other_concessions: string | null
+  effective_rent_psf: number | null; total_cost: number | null; npv: number | null
+  ai_summary: string | null; created_date: string
+}
+
+function ProposalComparison({ dealId }: { dealId: number }) {
+  const [proposals, setProposals] = useState<Proposal[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [addMode, setAddMode] = useState<'paste' | 'manual'>('paste')
+  const [proposalText, setProposalText] = useState('')
+  const [manualForm, setManualForm] = useState<Record<string, string>>({
+    file_name: '', building_name: '', landlord: '', city: '', state: 'MN',
+    sqft: '', term_years: '', base_rent_psf: '', rent_escalation: '3',
+    free_rent_months: '0', ti_psf: '', other_concessions: '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { loadProposals() }, [dealId])
+
+  async function loadProposals() {
+    setLoading(true)
+    const res = await fetch(`/api/deals/${dealId}/proposals`)
+    const data = await res.json()
+    setProposals(Array.isArray(data) ? data : [])
+    setLoading(false)
+  }
+
+  async function addProposal() {
+    setSaving(true)
+    if (addMode === 'paste') {
+      await fetch(`/api/deals/${dealId}/proposals`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposal_text: proposalText }),
+      })
+      setProposalText('')
+    } else {
+      const payload: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(manualForm)) {
+        if (!v) continue
+        if (['sqft','term_years','free_rent_months'].includes(k)) payload[k] = parseInt(v)
+        else if (['base_rent_psf','rent_escalation','ti_psf'].includes(k)) payload[k] = parseFloat(v)
+        else payload[k] = v
+      }
+      await fetch(`/api/deals/${dealId}/proposals`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      setManualForm({ file_name: '', building_name: '', landlord: '', city: '', state: 'MN', sqft: '', term_years: '', base_rent_psf: '', rent_escalation: '3', free_rent_months: '0', ti_psf: '', other_concessions: '' })
+    }
+    setSaving(false)
+    setShowAdd(false)
+    loadProposals()
+  }
+
+  async function deleteProposal(proposalId: number) {
+    await fetch(`/api/deals/${dealId}/proposals`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposalId }),
+    })
+    loadProposals()
+  }
+
+  // Find best proposal (lowest effective rent)
+  const bestId = proposals.length > 1
+    ? proposals.reduce((best, p) => (p.effective_rent_psf || 999) < (best.effective_rent_psf || 999) ? p : best).id
+    : null
+
+  return (
+    <div className="border-t border-gray-100 pt-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-gray-700">Proposal Comparison ({proposals.length})</h3>
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition">
+          + Add Proposal
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4">
+          <div className="flex gap-2 mb-3">
+            <button onClick={() => setAddMode('paste')}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition ${addMode === 'paste' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+              📝 Paste Proposal Text
+            </button>
+            <button onClick={() => setAddMode('manual')}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition ${addMode === 'manual' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+              ⚙️ Enter Manually
+            </button>
+          </div>
+
+          {addMode === 'paste' ? (
+            <>
+              <p className="text-xs text-gray-400 mb-2">Paste the landlord proposal or LOI text — Claude extracts the economics automatically.</p>
+              <textarea rows={5} value={proposalText} onChange={(e) => setProposalText(e.target.value)}
+                placeholder="Paste proposal text here..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none mb-2" />
+            </>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {[['file_name','Label (e.g. 225 S 6th Landlord)'],['building_name','Building'],['landlord','Landlord'],['city','City'],['state','State'],['sqft','SF'],['term_years','Term (years)'],['base_rent_psf','Asking Rate PSF'],['rent_escalation','Escalation %'],['free_rent_months','Free Rent (months)'],['ti_psf','TI PSF'],['other_concessions','Other Concessions']].map(([k,l]) => (
+                <div key={k}>
+                  <label className="block text-xs text-gray-400 mb-1">{l}</label>
+                  <input type="text" value={manualForm[k] || ''}
+                    onChange={(e) => setManualForm((p) => ({ ...p, [k]: e.target.value }))}
+                    className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button onClick={addProposal} disabled={saving || (addMode === 'paste' && !proposalText)}
+              className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-40">
+              {saving ? (addMode === 'paste' ? '⏳ Extracting…' : 'Saving…') : 'Add Proposal'}
+            </button>
+            <button onClick={() => setShowAdd(false)} className="text-xs border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Loading proposals...</p>
+      ) : proposals.length === 0 ? (
+        <p className="text-sm text-gray-400">No proposals yet. Add landlord proposals above to compare them side by side.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">Proposal</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">SF</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">Term</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">Asking PSF</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">Esc %</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">Free Rent</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">TI PSF</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500 bg-blue-50">Eff. Rent PSF</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500 bg-blue-50">Total Cost</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500 bg-blue-50">NPV</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {proposals.map((p) => {
+                const isBest = p.id === bestId
+                return (
+                  <tr key={p.id} className={isBest ? 'bg-green-50' : 'hover:bg-gray-50'}>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-gray-900 flex items-center gap-1">
+                        {isBest && <span className="text-green-600">★</span>}
+                        {p.file_name || p.building_name || 'Proposal'}
+                      </div>
+                      <div className="text-gray-400">{[p.landlord, p.city].filter(Boolean).join(' · ')}</div>
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">{p.sqft ? p.sqft.toLocaleString() : '—'}</td>
+                    <td className="px-3 py-2 text-gray-700">{p.term_years ? `${p.term_years} yr` : '—'}</td>
+                    <td className="px-3 py-2 text-gray-700">{fmtPSF(p.base_rent_psf)}</td>
+                    <td className="px-3 py-2 text-gray-700">{p.rent_escalation ? `${p.rent_escalation}%` : '—'}</td>
+                    <td className="px-3 py-2 text-gray-700">{p.free_rent_months ? `${p.free_rent_months} mo` : '—'}</td>
+                    <td className="px-3 py-2 text-gray-700">{fmtPSF(p.ti_psf)}</td>
+                    <td className={`px-3 py-2 font-bold ${isBest ? 'text-green-700' : 'text-blue-700'}`}>{fmtPSF(p.effective_rent_psf)}</td>
+                    <td className="px-3 py-2 font-semibold text-gray-800">{fmtDollars(p.total_cost)}</td>
+                    <td className="px-3 py-2 font-semibold text-gray-800">{fmtDollars(p.npv)}</td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => deleteProposal(p.id)} className="text-red-400 hover:text-red-600">×</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {proposals.length > 1 && (
+            <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-100 text-xs text-green-700">
+              ★ Best deal: <strong>{proposals.find((p) => p.id === bestId)?.file_name}</strong> at {fmtPSF(proposals.find((p) => p.id === bestId)?.effective_rent_psf || null)} effective rent
+              {proposals.length >= 2 && (() => {
+                const sorted = [...proposals].sort((a, b) => (a.effective_rent_psf || 999) - (b.effective_rent_psf || 999))
+                const savings = (sorted[sorted.length - 1].effective_rent_psf || 0) - (sorted[0].effective_rent_psf || 0)
+                return savings > 0 ? ` — saves $${savings.toFixed(2)}/SF vs worst proposal` : ''
+              })()}
+            </div>
+          )}
+          {proposals.find((p) => p.ai_summary) && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600">
+              <p className="font-semibold text-gray-700 mb-1">AI Summary</p>
+              {proposals.filter((p) => p.ai_summary).map((p) => (
+                <p key={p.id} className="mb-1"><strong>{p.file_name}:</strong> {p.ai_summary}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
@@ -412,6 +615,9 @@ export default function DealsPage() {
                     <p className="text-sm text-gray-600">{deal.notes}</p>
                   </div>
                 )}
+
+                {/* Proposal Comparison */}
+                <ProposalComparison dealId={deal.id} />
               </div>
             </div>
           </div>
