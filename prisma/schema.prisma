@@ -235,6 +235,48 @@ model ResearchReport {
   company           Company  @relation(fields: [company_id], references: [id])
 }
 
+model LeaseModel {
+  id              Int               @id @default(autoincrement())
+  deal_id         Int?
+  title           String
+  discount_rate   Float             @default(8.0)
+  notes           String?
+  created_by      String?
+  created_date    DateTime          @default(now())
+  last_updated    DateTime          @updatedAt
+  scenarios       LeaseScenario[]
+}
+
+model LeaseScenario {
+  id                     Int        @id @default(autoincrement())
+  model_id               Int
+  name                   String
+  address                String?
+  suite                  String?
+  rsf                    Int?
+  start_date             String?
+  term_months            Int?
+  lease_type             String?    @default("NNN")
+  base_rent_psf          Float?
+  expenses_psf           Float?
+  rent_escalation        Float?     @default(3.0)
+  free_rent_months       Float?     @default(0)
+  free_rent_type         String?    @default("Gross")
+  ti_allowance_psf       Float?
+  capex_psf              Float?
+  parking_cost_monthly   Float?
+  parking_spaces         Int?
+  notes                  String?
+  // Calculated fields (stored for display/edit)
+  total_occupancy_cost   Float?
+  annual_avg_cost        Float?
+  avg_cost_psf           Float?
+  npv                    Float?
+  net_effective_rent_psf Float?
+  cash_flows             Json?
+  model                  LeaseModel @relation(fields: [model_id], references: [id])
+}
+
 model BuildingSurvey {
   id                  Int                    @id @default(autoincrement())
   address             String

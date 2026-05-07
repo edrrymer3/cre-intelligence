@@ -18,6 +18,7 @@ const navItems = [
   { href: '/dashboard/alerts', label: '8-K Alerts', icon: '🔔' },
   { href: '/dashboard/watchlist', label: 'Watchlist Manager', icon: '⚙️' },
   { href: '/dashboard/email-templates', label: 'Email Templates', icon: '✉️' },
+  { href: '/dashboard/model', label: 'Lease Models', icon: '📊' },
   { href: '/dashboard/proposals', label: 'Proposals & Pitches', icon: '💼' },
   { href: '/dashboard/tours', label: 'Tour Cards', icon: '🏙️' },
   { href: '/dashboard/surveys', label: 'Building Surveys', icon: '📋' },
