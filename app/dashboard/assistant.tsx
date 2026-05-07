@@ -15,13 +15,32 @@ const QUICK_PROMPTS = [
   'What are the top market intel items?',
 ]
 
+const STORAGE_KEY = 'cre_assistant_messages'
+
 export default function AIAssistant() {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) return JSON.parse(saved)
+      } catch {}
+    }
+    return []
+  })
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50)))
+      } catch {}
+    }
+  }, [messages])
 
   useEffect(() => {
     if (open) {
@@ -113,7 +132,7 @@ export default function AIAssistant() {
               <h3 className="text-white font-semibold text-sm">CRE Intelligence AI</h3>
               <p className="text-gray-400 text-xs">Knows your full database</p>
             </div>
-            <button onClick={() => setMessages([])} className="text-gray-500 hover:text-gray-300 text-xs transition">Clear</button>
+            <button onClick={() => { setMessages([]); localStorage.removeItem(STORAGE_KEY) }} className="text-gray-500 hover:text-gray-300 text-xs transition">Clear</button>
           </div>
 
           {/* Messages */}
