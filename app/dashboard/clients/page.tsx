@@ -509,6 +509,9 @@ export default function ClientsPage() {
                       <AddLocationInline clientId={client.id} onSave={(d) => addLocation(client.id, d)} />
                       <CreateDealButton clientId={client.id} clientName={client.name} />
                     </div>
+
+                    {/* Active Deals for this client */}
+                    <ClientDeals clientId={client.id} clientName={client.name} />
                   </div>
                 )}
               </div>
@@ -673,5 +676,81 @@ function CreateDealButton({ clientId, clientName }: { clientId: number; clientNa
         </div>
       )}
     </form>
+  )
+}
+
+interface ClientDeal {
+  id: number; deal_name: string; status: string; target_city: string | null
+  target_state: string | null; property_type: string | null
+  target_sf_min: number | null; target_sf_max: number | null
+  estimated_commission: number | null; probability: number | null
+  last_updated: string
+}
+
+const DEAL_STATUS_COLORS: Record<string, string> = {
+  'Prospecting': 'bg-gray-100 text-gray-600', 'Contacted': 'bg-gray-200 text-gray-700',
+  'Meeting Set': 'bg-blue-100 text-blue-700', 'Proposal': 'bg-indigo-100 text-indigo-700',
+  'Touring': 'bg-yellow-100 text-yellow-700', 'Negotiating': 'bg-orange-100 text-orange-700',
+  'LOI': 'bg-purple-100 text-purple-700', 'Lease Execution': 'bg-green-100 text-green-700',
+  'Closed': 'bg-green-200 text-green-800', 'Lost': 'bg-red-100 text-red-700',
+}
+
+function ClientDeals({ clientId, clientName }: { clientId: number; clientName: string }) {
+  const [deals, setDeals] = useState<ClientDeal[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/deals?client_id=${clientId}`)
+      .then((r) => r.json())
+      .then((d) => { setDeals(Array.isArray(d) ? d.filter((deal: ClientDeal) => deal.status !== 'Closed' && deal.status !== 'Lost') : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [clientId])
+
+  if (loading) return null
+  if (deals.length === 0) return (
+    <div className="mt-5 pt-4 border-t border-gray-100">
+      <p className="text-xs text-gray-400">No active deals. Use + Create Deal above to start a transaction.</p>
+    </div>
+  )
+
+  return (
+    <div className="mt-5 pt-5 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-700">Active Deals ({deals.length})</h3>
+        <a href="/dashboard/deals" className="text-xs text-blue-600 hover:underline">View in Deal Tracker →</a>
+      </div>
+      <div className="space-y-2">
+        {deals.map((deal) => (
+          <div key={deal.id} className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-900 text-sm">{deal.deal_name}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${DEAL_STATUS_COLORS[deal.status] || 'bg-gray-100 text-gray-600'}`}>{deal.status}</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {deal.property_type && <span className="capitalize">{deal.property_type}</span>}
+                {deal.target_city && <span> · {deal.target_city}, {deal.target_state}</span>}
+                {deal.target_sf_max && <span> · {deal.target_sf_max.toLocaleString()} SF</span>}
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-right">
+              {deal.estimated_commission && (
+                <div>
+                  <div className="text-sm font-semibold text-green-600">${deal.estimated_commission.toLocaleString()}</div>
+                  <div className="text-xs text-gray-400">Est. commission</div>
+                </div>
+              )}
+              <div>
+                <div className="text-sm font-semibold text-gray-700">{deal.probability || 50}%</div>
+                <div className="text-xs text-gray-400">Probability</div>
+              </div>
+              <a href="/dashboard/model" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition">
+                📊 Lease Model
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
