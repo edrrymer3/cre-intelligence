@@ -505,7 +505,10 @@ export default function ClientsPage() {
                       </tbody>
                     </table>
 
-                    <AddLocationInline clientId={client.id} onSave={(d) => addLocation(client.id, d)} />
+                    <div className="flex items-center gap-3 mt-2">
+                      <AddLocationInline clientId={client.id} onSave={(d) => addLocation(client.id, d)} />
+                      <CreateDealButton clientId={client.id} clientName={client.name} />
+                    </div>
                   </div>
                 )}
               </div>
@@ -571,6 +574,104 @@ function AddLocationInline({ clientId, onSave }: { clientId: number; onSave: (d:
         <button type="submit" disabled={saving} className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">{saving ? 'Saving…' : 'Add'}</button>
         <button type="button" onClick={() => setOpen(false)} className="text-sm border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
       </div>
+    </form>
+  )
+}
+
+function CreateDealButton({ clientId, clientName }: { clientId: number; clientName: string }) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({ deal_name: '', target_city: '', target_state: 'MN', property_type: 'office', target_sf_min: '', target_sf_max: '', probability: '50', assigned_to: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+  const [created, setCreated] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    await fetch('/api/deals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...form,
+        client_id: clientId,
+        deal_name: form.deal_name || `${clientName} — ${form.target_city || form.target_state}`,
+        target_sf_min: form.target_sf_min ? parseInt(form.target_sf_min) : null,
+        target_sf_max: form.target_sf_max ? parseInt(form.target_sf_max) : null,
+        probability: parseInt(form.probability),
+      }),
+    })
+    setSaving(false)
+    setCreated(true)
+    setTimeout(() => { setOpen(false); setCreated(false) }, 1500)
+  }
+
+  if (!open) return (
+    <button onClick={() => setOpen(true)}
+      className="text-sm text-green-600 hover:text-green-800 border border-green-200 hover:border-green-400 px-4 py-1.5 rounded-lg transition">
+      + Create Deal
+    </button>
+  )
+
+  return (
+    <form onSubmit={submit} className="bg-green-50 rounded-xl border border-green-200 p-4 w-full mt-2">
+      <h3 className="text-sm font-semibold text-gray-700 mb-3">New Deal for {clientName}</h3>
+      <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="col-span-2">
+          <label className="block text-xs text-gray-500 mb-1">Deal Name (auto-filled if blank)</label>
+          <input type="text" value={form.deal_name} onChange={(e) => setForm((p) => ({ ...p, deal_name: e.target.value }))}
+            placeholder={`${clientName} — ${form.target_city || 'New Deal'}`}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Target City</label>
+          <input type="text" value={form.target_city} onChange={(e) => setForm((p) => ({ ...p, target_city: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">State</label>
+          <input type="text" value={form.target_state} onChange={(e) => setForm((p) => ({ ...p, target_state: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Property Type</label>
+          <select value={form.property_type} onChange={(e) => setForm((p) => ({ ...p, property_type: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+            <option value="office">Office</option>
+            <option value="industrial">Industrial</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Min SF</label>
+          <input type="number" value={form.target_sf_min} onChange={(e) => setForm((p) => ({ ...p, target_sf_min: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Max SF</label>
+          <input type="number" value={form.target_sf_max} onChange={(e) => setForm((p) => ({ ...p, target_sf_max: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Probability %</label>
+          <input type="number" value={form.probability} onChange={(e) => setForm((p) => ({ ...p, probability: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Assigned To</label>
+          <input type="text" value={form.assigned_to} onChange={(e) => setForm((p) => ({ ...p, assigned_to: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+      </div>
+      {created ? (
+        <p className="text-sm text-green-600 font-medium">✓ Deal created! View it in the Deals tab.</p>
+      ) : (
+        <div className="flex gap-2">
+          <button type="submit" disabled={saving}
+            className="text-sm bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50">
+            {saving ? 'Creating…' : 'Create Deal'}
+          </button>
+          <button type="button" onClick={() => setOpen(false)}
+            className="text-sm border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
+        </div>
+      )}
     </form>
   )
 }
