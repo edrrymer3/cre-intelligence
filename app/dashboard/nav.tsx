@@ -17,7 +17,6 @@ const navItems = [
   { href: '/dashboard/reits', label: 'REIT Watchlist', icon: '📋' },
   { href: '/dashboard/alerts', label: '8-K Alerts', icon: '🔔' },
   { href: '/dashboard/watchlist', label: 'Watchlist Manager', icon: '⚙️' },
-  { href: '/dashboard/pipeline', label: 'My Pipeline', icon: '📊' },
   { href: '/dashboard/email-templates', label: 'Email Templates', icon: '✉️' },
   { href: '/dashboard/proposals', label: 'Proposals & Pitches', icon: '💼' },
   { href: '/dashboard/tours', label: 'Tour Cards', icon: '🏙️' },

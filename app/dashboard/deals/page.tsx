@@ -8,22 +8,25 @@ interface DealSpace { id: number; building_name: string | null; address: string 
 interface Deal {
   id: number; deal_name: string; status: string; property_type: string | null; target_city: string | null; target_state: string | null
   target_sf_min: number | null; target_sf_max: number | null; estimated_value_sf: number | null; estimated_commission: number | null
-  probability: number | null; assigned_to: string | null; notes: string | null; created_date: string; last_updated: string
+  probability: number | null; assigned_to: string | null; notes: string | null
+  contact_name: string | null; contact_title: string | null
+  created_date: string; last_updated: string
   company: { name: string; ticker: string | null } | null; client: { name: string } | null
   milestones: DealMilestone[]; spaces: DealSpace[]
   _count: { milestones: number; spaces: number }
 }
 
-const ACTIVE_STATUSES = ['Prospecting', 'RFP', 'Touring', 'Negotiating', 'LOI', 'Lease Execution']
+const ACTIVE_STATUSES = ['Contacted', 'Meeting Set', 'Proposal', 'Touring', 'Negotiating', 'LOI', 'Lease Execution']
 const ARCHIVED_STATUSES = ['Closed', 'Lost']
 const STATUSES = [...ACTIVE_STATUSES, ...ARCHIVED_STATUSES]
 const STATUS_COLORS: Record<string, string> = {
-  'Prospecting': 'bg-gray-100', 'RFP': 'bg-blue-50', 'Touring': 'bg-yellow-50',
-  'Negotiating': 'bg-orange-50', 'LOI': 'bg-purple-50', 'Lease Execution': 'bg-green-50',
-  'Closed': 'bg-green-100', 'Lost': 'bg-red-50',
+  'Contacted': 'bg-gray-50', 'Meeting Set': 'bg-blue-50', 'Proposal': 'bg-indigo-50',
+  'Touring': 'bg-yellow-50', 'Negotiating': 'bg-orange-50', 'LOI': 'bg-purple-50',
+  'Lease Execution': 'bg-green-50', 'Closed': 'bg-green-100', 'Lost': 'bg-red-50',
 }
 const STATUS_HEADER: Record<string, string> = {
-  'Prospecting': 'text-gray-600 bg-gray-200', 'RFP': 'text-blue-700 bg-blue-100', 'Touring': 'text-yellow-700 bg-yellow-100',
+  'Contacted': 'text-gray-600 bg-gray-200', 'Meeting Set': 'text-blue-700 bg-blue-100',
+  'Proposal': 'text-indigo-700 bg-indigo-100', 'Touring': 'text-yellow-700 bg-yellow-100',
   'Negotiating': 'text-orange-700 bg-orange-100', 'LOI': 'text-purple-700 bg-purple-100',
   'Lease Execution': 'text-green-700 bg-green-100', 'Closed': 'text-green-800 bg-green-200', 'Lost': 'text-red-700 bg-red-100',
 }
@@ -103,7 +106,7 @@ export default function DealsPage() {
 
   // New deal form
   function NewDealForm() {
-    const [form, setForm] = useState({ deal_name: '', status: 'Prospecting', property_type: 'office', target_city: '', target_state: 'MN', target_sf_min: '', target_sf_max: '', estimated_value_sf: '', probability: '50', assigned_to: '', notes: '' })
+    const [form, setForm] = useState({ deal_name: '', status: 'Contacted', property_type: 'office', target_city: '', target_state: 'MN', target_sf_min: '', target_sf_max: '', estimated_value_sf: '', probability: '50', assigned_to: '', contact_name: '', contact_title: '', notes: '' })
     const [saving, setSaving] = useState(false)
     async function submit(e: React.FormEvent) {
       e.preventDefault()
@@ -127,7 +130,7 @@ export default function DealsPage() {
       <form onSubmit={submit} className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <h2 className="text-base font-semibold text-gray-800 mb-4">New Deal</h2>
         <div className="grid grid-cols-3 gap-4 mb-4">
-          {[['deal_name', 'Deal Name *', 'text', true], ['target_city', 'Target City', 'text'], ['target_state', 'State', 'text'], ['target_sf_min', 'Min SF', 'number'], ['target_sf_max', 'Max SF', 'number'], ['estimated_value_sf', 'Est. Rate PSF', 'number'], ['probability', 'Probability %', 'number'], ['assigned_to', 'Assigned To', 'text'], ['notes', 'Notes', 'text']].map(([k, l, t, req]) => (
+          {[['deal_name', 'Deal Name *', 'text', true], ['contact_name', 'Contact Name', 'text'], ['contact_title', 'Contact Title', 'text'], ['target_city', 'Target City', 'text'], ['target_state', 'State', 'text'], ['target_sf_min', 'Min SF', 'number'], ['target_sf_max', 'Max SF', 'number'], ['estimated_value_sf', 'Est. Rate PSF', 'number'], ['probability', 'Probability %', 'number'], ['assigned_to', 'Assigned To', 'text'], ['notes', 'Notes', 'text']].map(([k, l, t, req]) => (
             <div key={k as string}>
               <label className="block text-xs font-medium text-gray-500 mb-1">{l as string}</label>
               <input type={t as string} required={!!req} value={(form as Record<string, string>)[k as string]}
@@ -250,7 +253,8 @@ export default function DealsPage() {
                                 {deal.target_sf_max && <div className="text-xs text-gray-500">Up to {deal.target_sf_max.toLocaleString()} SF</div>}
                                 {deal.estimated_commission && <div className="text-xs text-green-600 font-medium mt-1">${deal.estimated_commission.toLocaleString()} est.</div>}
                                 {deal.probability && <div className="text-xs text-gray-400">{deal.probability}% probability</div>}
-                                {deal.assigned_to && <div className="text-xs text-blue-600 mt-1">→ {deal.assigned_to}</div>}
+                                {deal.contact_name && <div className="text-xs text-gray-600 mt-1">👤 {deal.contact_name}{deal.contact_title ? ` · ${deal.contact_title}` : ''}</div>}
+                      {deal.assigned_to && <div className="text-xs text-blue-600 mt-1">→ {deal.assigned_to}</div>}
                                 <div className="text-xs text-gray-300 mt-1">{daysSince(deal.last_updated)}d ago</div>
                               </div>
                             )}

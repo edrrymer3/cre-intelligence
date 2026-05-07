@@ -506,6 +506,8 @@ model Deal {
   probability         Int?
   assigned_to         String?
   notes               String?
+  contact_name        String?
+  contact_title       String?
   hubspot_deal_id     String?
   created_date        DateTime        @default(now())
   last_updated        DateTime        @updatedAt
