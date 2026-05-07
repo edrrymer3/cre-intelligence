@@ -160,7 +160,7 @@ export default function AIAssistant() {
               onKeyDown={handleKey}
               placeholder="Ask anything about your data..."
               disabled={streaming}
-              className="flex-1 text-sm border border-gray-300 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              className="flex-1 text-sm border border-gray-300 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 disabled:opacity-50 text-gray-900 bg-white placeholder-gray-400"
             />
             <button onClick={() => send(input)} disabled={streaming || !input.trim()}
               className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-blue-700 transition disabled:opacity-40">
