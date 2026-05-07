@@ -62,6 +62,14 @@ export default function ClientsPage() {
   const [enriching, setEnriching] = useState(false)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  // Edit client
+  const [editClientId, setEditClientId] = useState<number | null>(null)
+  const [editClientForm, setEditClientForm] = useState<Record<string, string>>({})
+  const [savingClientEdit, setSavingClientEdit] = useState(false)
+  // Add contact
+  const [addContactFor, setAddContactFor] = useState<number | null>(null)
+  const [contactForm, setContactForm] = useState({ name: '', title: '', email: '', phone: '', linkedin_url: '', primary: false })
+  const [savingContact, setSavingContact] = useState(false)
   const limit = 25
 
   useEffect(() => { load() }, [page])
@@ -153,6 +161,46 @@ export default function ClientsPage() {
   }
 
   const totalPages = Math.ceil(total / limit)
+
+  async function saveClientEdit(clientId: number) {
+    setSavingClientEdit(true)
+    const payload: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(editClientForm)) {
+      if (k === 'employee_count') payload[k] = v ? parseInt(v) : null
+      else payload[k] = v || null
+    }
+    await fetch(`/api/clients/${clientId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    setSavingClientEdit(false)
+    setEditClientId(null)
+    setEditClientForm({})
+    load()
+  }
+
+  async function addContact(clientId: number) {
+    setSavingContact(true)
+    await fetch(`/api/clients/${clientId}/contacts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(contactForm),
+    })
+    setSavingContact(false)
+    setAddContactFor(null)
+    setContactForm({ name: '', title: '', email: '', phone: '', linkedin_url: '', primary: false })
+    load()
+  }
+
+  async function deleteContact(clientId: number, contactId: number) {
+    await fetch(`/api/clients/${clientId}/contacts`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contactId }),
+    })
+    load()
+  }
 
   return (
     <div className="p-6">
@@ -322,25 +370,98 @@ export default function ClientsPage() {
                         ⚠️ {urgentLocs.length} expiring
                       </span>
                     )}
-                    <span className="text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+                    <div className="flex items-center gap-3">
+                      <button onClick={(e) => { e.stopPropagation(); setEditClientId(editClientId === client.id ? null : client.id); setEditClientForm({ name: client.name, industry: client.industry || '', hq_city: client.hq_city || '', hq_state: client.hq_state || '', employee_count: client.employee_count ? String(client.employee_count) : '', notes: client.notes || '' }) }}
+                        className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2 py-1 rounded-lg transition">
+                        Edit
+                      </button>
+                      <span className="text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+                    </div>
                   </div>
                 </div>
 
+                {/* Inline edit */}
+                {editClientId === client.id && (
+                  <div className="border-t border-blue-100 bg-blue-50 px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-4 gap-3 mb-3">
+                      {[['name','Name'],['hq_city','City'],['hq_state','State'],['employee_count','Employees'],['notes','Notes']].map(([k,l]) => (
+                        <div key={k}>
+                          <label className="block text-xs text-gray-500 mb-1">{l}</label>
+                          <input type={k === 'employee_count' ? 'number' : 'text'} value={editClientForm[k] || ''}
+                            onChange={(e) => setEditClientForm((p) => ({ ...p, [k]: e.target.value }))}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                        </div>
+                      ))}
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Industry</label>
+                        <select value={editClientForm.industry || ''} onChange={(e) => setEditClientForm((p) => ({ ...p, industry: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                          <option value="">—</option>
+                          {['Technology','Healthcare','Financial Services','Manufacturing','Retail','Professional Services','Energy','Transportation & Logistics','Real Estate','Education'].map((i) => <option key={i}>{i}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => saveClientEdit(client.id)} disabled={savingClientEdit}
+                        className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">{savingClientEdit ? 'Saving…' : 'Save'}</button>
+                      <button onClick={() => setEditClientId(null)} className="text-sm border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
+                    </div>
+                  </div>
+                )}
+
                 {isExpanded && (
                   <div className="border-t border-gray-100 px-6 py-5">
-                    {/* Contacts */}
-                    {client.contacts.length > 0 && (
-                      <div className="flex gap-4 mb-4 flex-wrap">
-                        {client.contacts.map((c) => (
-                          <div key={c.id} className="flex items-center gap-2 text-sm">
-                            {c.primary && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Primary</span>}
-                            <span className="font-medium">{c.name}</span>
-                            {c.title && <span className="text-gray-500">· {c.title}</span>}
-                            {c.email && <a href={`mailto:${c.email}`} className="text-blue-600 text-xs">✉</a>}
-                          </div>
-                        ))}
+                    {/* Contacts section */}
+                    <div className="mb-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-gray-700">Contacts ({client.contacts.length})</h3>
+                        <button onClick={() => setAddContactFor(addContactFor === client.id ? null : client.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-3 py-1 rounded-lg transition">
+                          + Add Contact
+                        </button>
                       </div>
-                    )}
+                      {client.contacts.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {client.contacts.map((c) => (
+                            <div key={c.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                              {c.primary && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">Primary</span>}
+                              <span className="font-medium text-gray-900">{c.name}</span>
+                              {c.title && <span className="text-gray-500">· {c.title}</span>}
+                              {c.email && <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline text-xs">{c.email}</a>}
+                              {c.phone && <span className="text-gray-500 text-xs">{c.phone}</span>}
+                              {c.linkedin_url && <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs hover:underline">LinkedIn</a>}
+                              <button onClick={() => deleteContact(client.id, c.id)} className="ml-auto text-xs text-red-400 hover:text-red-600">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {addContactFor === client.id && (
+                        <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                          <div className="grid grid-cols-3 gap-3 mb-3">
+                            {[['name','Name *'],['title','Title'],['email','Email'],['phone','Phone'],['linkedin_url','LinkedIn URL']].map(([k,l]) => (
+                              <div key={k}>
+                                <label className="block text-xs text-gray-500 mb-1">{l}</label>
+                                <input type="text" value={(contactForm as unknown as Record<string,string>)[k] || ''}
+                                  onChange={(e) => setContactForm((p) => ({ ...p, [k]: e.target.value }))}
+                                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                              </div>
+                            ))}
+                            <div className="flex items-end">
+                              <label className="flex items-center gap-2 cursor-pointer mb-1">
+                                <input type="checkbox" checked={contactForm.primary} onChange={(e) => setContactForm((p) => ({ ...p, primary: e.target.checked }))}
+                                  className="rounded" />
+                                <span className="text-sm text-gray-600">Primary contact</span>
+                              </label>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => addContact(client.id)} disabled={savingContact || !contactForm.name}
+                              className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">{savingContact ? 'Saving…' : 'Add Contact'}</button>
+                            <button onClick={() => setAddContactFor(null)} className="text-sm border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Locations table */}
                     <table className="w-full text-sm mb-4">
