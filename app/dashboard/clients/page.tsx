@@ -58,6 +58,8 @@ export default function ClientsPage() {
   const [page, setPage] = useState(1)
   const [showAddClient, setShowAddClient] = useState(false)
   const [newClient, setNewClient] = useState({ name: '', industry: '', hq_city: '', hq_state: '', employee_count: '', notes: '' })
+  const [enrichUrl, setEnrichUrl] = useState('')
+  const [enriching, setEnriching] = useState(false)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const limit = 25
@@ -103,6 +105,29 @@ export default function ClientsPage() {
     const q = search.toLowerCase()
     return clients.filter((c) => c.name.toLowerCase().includes(q) || c.industry?.toLowerCase().includes(q))
   }, [clients, search])
+
+  async function enrichFromUrl() {
+    if (!enrichUrl) return
+    setEnriching(true)
+    try {
+      const res = await fetch('/api/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: enrichUrl }),
+      })
+      const data = await res.json()
+      setNewClient((p) => ({
+        ...p,
+        name: data.name || p.name,
+        industry: data.industry || p.industry,
+        hq_city: data.hq_city || p.hq_city,
+        hq_state: data.hq_state || p.hq_state,
+        employee_count: data.employee_count ? String(data.employee_count) : p.employee_count,
+        notes: data.notes || p.notes,
+      }))
+    } catch {}
+    setEnriching(false)
+  }
 
   async function addClient(e: React.FormEvent) {
     e.preventDefault()
@@ -179,21 +204,74 @@ export default function ClientsPage() {
       {/* Add client form */}
       {showAddClient && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          {/* URL enrichment */}
+          <div className="mb-5 pb-5 border-b border-gray-100">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Auto-fill from Website or LinkedIn</label>
+            <div className="flex gap-2">
+              <input type="text" value={enrichUrl} onChange={(e) => setEnrichUrl(e.target.value)}
+                placeholder="https://company.com or linkedin.com/company/..."
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              <button type="button" onClick={enrichFromUrl} disabled={enriching || !enrichUrl}
+                className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900 disabled:opacity-40 whitespace-nowrap">
+                {enriching ? '⏳ Looking up…' : '✨ Auto-fill'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Fields will pre-fill automatically — you can edit anything before saving</p>
+          </div>
+
           <form onSubmit={addClient} className="grid grid-cols-3 gap-4">
-            {[['name', 'Client Name *', true], ['industry', 'Industry'], ['hq_city', 'HQ City'], ['hq_state', 'HQ State'], ['employee_count', 'Employees'], ['notes', 'Notes']].map(([key, label, req]) => (
-              <div key={key as string}>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{label as string}</label>
-                <input required={!!req} type={key === 'employee_count' ? 'number' : 'text'}
-                  value={(newClient as Record<string, string>)[key as string]}
-                  onChange={(e) => setNewClient((p) => ({ ...p, [key as string]: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
-              </div>
-            ))}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Client Name *</label>
+              <input required type="text" value={newClient.name}
+                onChange={(e) => setNewClient((p) => ({ ...p, name: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Industry</label>
+              <select value={newClient.industry} onChange={(e) => setNewClient((p) => ({ ...p, industry: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                <option value="">Select industry...</option>
+                <option>Technology</option>
+                <option>Healthcare</option>
+                <option>Financial Services</option>
+                <option>Manufacturing</option>
+                <option>Retail</option>
+                <option>Professional Services</option>
+                <option>Energy</option>
+                <option>Transportation &amp; Logistics</option>
+                <option>Real Estate</option>
+                <option>Education</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">HQ City</label>
+              <input type="text" value={newClient.hq_city}
+                onChange={(e) => setNewClient((p) => ({ ...p, hq_city: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">HQ State</label>
+              <input type="text" value={newClient.hq_state}
+                onChange={(e) => setNewClient((p) => ({ ...p, hq_state: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Employees</label>
+              <input type="number" value={newClient.employee_count}
+                onChange={(e) => setNewClient((p) => ({ ...p, employee_count: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
+              <input type="text" value={newClient.notes}
+                onChange={(e) => setNewClient((p) => ({ ...p, notes: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
             <div className="col-span-3 flex gap-3">
               <button type="submit" disabled={saving} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
                 {saving ? 'Saving…' : 'Add Client'}
               </button>
-              <button type="button" onClick={() => setShowAddClient(false)} className="border border-gray-300 text-gray-600 px-5 py-2 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+              <button type="button" onClick={() => { setShowAddClient(false); setEnrichUrl('') }} className="border border-gray-300 text-gray-600 px-5 py-2 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
             </div>
           </form>
         </div>
