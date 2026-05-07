@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 
 interface DealMilestone { id: number; milestone: string; due_date: string | null; completed: boolean; deal_id: number }
@@ -49,14 +49,17 @@ function ProposalComparison({ dealId }: { dealId: number }) {
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
-  const [addMode, setAddMode] = useState<'paste' | 'manual'>('paste')
-  const [proposalText, setProposalText] = useState('')
+  const [addMode, setAddMode] = useState<'drop' | 'manual'>('drop')
+  const [dragOver, setDragOver] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
   const [manualForm, setManualForm] = useState<Record<string, string>>({
     file_name: '', building_name: '', landlord: '', city: '', state: 'MN',
     sqft: '', term_years: '', base_rent_psf: '', rent_escalation: '3',
     free_rent_months: '0', ti_psf: '', other_concessions: '',
   })
   const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadProposals() }, [dealId])
 
@@ -68,28 +71,39 @@ function ProposalComparison({ dealId }: { dealId: number }) {
     setLoading(false)
   }
 
-  async function addProposal() {
-    setSaving(true)
-    if (addMode === 'paste') {
-      await fetch(`/api/deals/${dealId}/proposals`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal_text: proposalText }),
-      })
-      setProposalText('')
+  async function uploadFile(file: File) {
+    if (!file) return
+    setUploading(true)
+    setUploadStatus(`Reading ${file.name}...`)
+    const form = new FormData()
+    form.append('file', file)
+    setUploadStatus('Extracting data with Claude...')
+    const res = await fetch(`/api/deals/${dealId}/proposals/upload`, { method: 'POST', body: form })
+    if (!res.ok) {
+      const err = await res.json()
+      setUploadStatus(`Error: ${err.error}`)
     } else {
-      const payload: Record<string, unknown> = {}
-      for (const [k, v] of Object.entries(manualForm)) {
-        if (!v) continue
-        if (['sqft','term_years','free_rent_months'].includes(k)) payload[k] = parseInt(v)
-        else if (['base_rent_psf','rent_escalation','ti_psf'].includes(k)) payload[k] = parseFloat(v)
-        else payload[k] = v
-      }
-      await fetch(`/api/deals/${dealId}/proposals`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      setManualForm({ file_name: '', building_name: '', landlord: '', city: '', state: 'MN', sqft: '', term_years: '', base_rent_psf: '', rent_escalation: '3', free_rent_months: '0', ti_psf: '', other_concessions: '' })
+      setUploadStatus(`✓ ${file.name} analyzed!`)
+      loadProposals()
+      setTimeout(() => { setUploadStatus(''); setShowAdd(false) }, 2000)
     }
+    setUploading(false)
+  }
+
+  async function addManual() {
+    setSaving(true)
+    const payload: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(manualForm)) {
+      if (!v) continue
+      if (['sqft','term_years','free_rent_months'].includes(k)) payload[k] = parseInt(v)
+      else if (['base_rent_psf','rent_escalation','ti_psf'].includes(k)) payload[k] = parseFloat(v)
+      else payload[k] = v
+    }
+    await fetch(`/api/deals/${dealId}/proposals`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    setManualForm({ file_name: '', building_name: '', landlord: '', city: '', state: 'MN', sqft: '', term_years: '', base_rent_psf: '', rent_escalation: '3', free_rent_months: '0', ti_psf: '', other_concessions: '' })
     setSaving(false)
     setShowAdd(false)
     loadProposals()
@@ -121,9 +135,9 @@ function ProposalComparison({ dealId }: { dealId: number }) {
       {showAdd && (
         <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 mb-4">
           <div className="flex gap-2 mb-3">
-            <button onClick={() => setAddMode('paste')}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition ${addMode === 'paste' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
-              📝 Paste Proposal Text
+            <button onClick={() => setAddMode('drop')}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition ${addMode === 'drop' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+              📄 Upload PDF / Word
             </button>
             <button onClick={() => setAddMode('manual')}
               className={`text-xs px-3 py-1.5 rounded-lg border transition ${addMode === 'manual' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
@@ -131,33 +145,61 @@ function ProposalComparison({ dealId }: { dealId: number }) {
             </button>
           </div>
 
-          {addMode === 'paste' ? (
+          {addMode === 'drop' ? (
             <>
-              <p className="text-xs text-gray-400 mb-2">Paste the landlord proposal or LOI text — Claude extracts the economics automatically.</p>
-              <textarea rows={5} value={proposalText} onChange={(e) => setProposalText(e.target.value)}
-                placeholder="Paste proposal text here..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none mb-2" />
+              <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f) }} />
+              <div
+                onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) uploadFile(f) }}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition mb-2 ${
+                  dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                }`}>
+                {uploading ? (
+                  <div>
+                    <div className="text-2xl mb-2">⏳</div>
+                    <p className="text-sm text-blue-600 font-medium">{uploadStatus}</p>
+                  </div>
+                ) : uploadStatus.startsWith('✓') ? (
+                  <div>
+                    <div className="text-2xl mb-2">✅</div>
+                    <p className="text-sm text-green-600 font-medium">{uploadStatus}</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-2xl mb-2">📄</div>
+                    <p className="text-sm font-medium text-gray-600">Drop PDF or Word doc here</p>
+                    <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, .doc, .docx</p>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              {[['file_name','Label (e.g. 225 S 6th Landlord)'],['building_name','Building'],['landlord','Landlord'],['city','City'],['state','State'],['sqft','SF'],['term_years','Term (years)'],['base_rent_psf','Asking Rate PSF'],['rent_escalation','Escalation %'],['free_rent_months','Free Rent (months)'],['ti_psf','TI PSF'],['other_concessions','Other Concessions']].map(([k,l]) => (
-                <div key={k}>
-                  <label className="block text-xs text-gray-400 mb-1">{l}</label>
-                  <input type="text" value={manualForm[k] || ''}
-                    onChange={(e) => setManualForm((p) => ({ ...p, [k]: e.target.value }))}
-                    className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" />
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                {[['file_name','Label (e.g. 225 S 6th Landlord)'],['building_name','Building'],['landlord','Landlord'],['city','City'],['state','State'],['sqft','SF'],['term_years','Term (years)'],['base_rent_psf','Asking Rate PSF'],['rent_escalation','Escalation %'],['free_rent_months','Free Rent (months)'],['ti_psf','TI PSF'],['other_concessions','Other Concessions']].map(([k,l]) => (
+                  <div key={k}>
+                    <label className="block text-xs text-gray-400 mb-1">{l}</label>
+                    <input type="text" value={manualForm[k] || ''}
+                      onChange={(e) => setManualForm((p) => ({ ...p, [k]: e.target.value }))}
+                      className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={addManual} disabled={saving}
+                  className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-40">
+                  {saving ? 'Saving…' : 'Add Proposal'}
+                </button>
+                <button onClick={() => setShowAdd(false)} className="text-xs border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
+              </div>
+            </>
           )}
-
-          <div className="flex gap-2">
-            <button onClick={addProposal} disabled={saving || (addMode === 'paste' && !proposalText)}
-              className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-40">
-              {saving ? (addMode === 'paste' ? '⏳ Extracting…' : 'Saving…') : 'Add Proposal'}
-            </button>
-            <button onClick={() => setShowAdd(false)} className="text-xs border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
-          </div>
+          {addMode === 'drop' && !uploading && (
+            <button onClick={() => setShowAdd(false)} className="text-xs text-gray-400 hover:text-gray-600 mt-2">Cancel</button>
+          )}
         </div>
       )}
 
