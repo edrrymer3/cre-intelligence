@@ -70,6 +70,33 @@ export async function GET() {
     take: 10,
   })
 
+  // Today's priority actions — follow-ups due today
+  const todayFollowUps = await prisma.contactActivity.findMany({
+    where: {
+      follow_up_date: { lte: now },
+      contact: { company: { active: true } },
+    },
+    include: { contact: { include: { company: { select: { name: true } } } } },
+    orderBy: { follow_up_date: 'asc' },
+    take: 5,
+  })
+
+  // Active deals with milestones due this week
+  const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const dealMilestonesThisWeek = await prisma.dealMilestone.findMany({
+    where: { due_date: { gte: now, lte: weekFromNow }, completed: false },
+    include: { deal: { select: { deal_name: true, status: true } } },
+    orderBy: { due_date: 'asc' },
+    take: 5,
+  })
+
+  // Deals by status count
+  const dealsByStatus = await prisma.deal.groupBy({
+    by: ['status'],
+    _count: { id: true },
+    where: { status: { notIn: ['Closed', 'Lost'] } },
+  })
+
   // Summary counts
   const [totalCompanies, totalProperties, totalREITs, unreviewed] = await Promise.all([
     prisma.company.count({ where: { active: true } }),
@@ -88,5 +115,8 @@ export async function GET() {
     urgentPortfolioLeases,
     topMarketIntel,
     expiringClientLeases,
+    todayFollowUps,
+    dealMilestonesThisWeek,
+    dealsByStatus,
   })
 }

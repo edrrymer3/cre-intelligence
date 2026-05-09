@@ -51,6 +51,11 @@ export default function ModelPage() {
   const [editForm, setEditForm] = useState<Record<string, string>>({})
   const [savingEdit, setSavingEdit] = useState(false)
 
+  // PDF import
+  const [importing, setImporting] = useState(false)
+  const [importStatus, setImportStatus] = useState('')
+  const importRef = useRef<HTMLInputElement>(null)
+
   // AI assistant
   const [aiOpen, setAiOpen] = useState(false)
   const [aiMessages, setAiMessages] = useState<AiMessage[]>([])
@@ -139,6 +144,25 @@ export default function ModelPage() {
     if (!activeModelId || !confirm('Remove this scenario?')) return
     await fetch(`/api/model/${activeModelId}/scenarios/${scenarioId}`, { method: 'DELETE' })
     load()
+  }
+
+  async function importFromPDF(file: File) {
+    if (!activeModelId) return
+    setImporting(true)
+    setImportStatus(`Reading ${file.name}...`)
+    const form = new FormData()
+    form.append('file', file)
+    setImportStatus('Extracting scenarios with Claude...')
+    const res = await fetch(`/api/model/${activeModelId}/import`, { method: 'POST', body: form })
+    const data = await res.json()
+    if (res.ok) {
+      setImportStatus(`✓ Imported ${data.imported} scenarios!`)
+      load()
+      setTimeout(() => setImportStatus(''), 3000)
+    } else {
+      setImportStatus(`Error: ${data.error}`)
+    }
+    setImporting(false)
   }
 
   async function sendAiMessage() {
@@ -288,6 +312,15 @@ export default function ModelPage() {
               <p className="text-sm text-gray-500">Discount rate: {activeModel.discount_rate}% · {activeModel.scenarios.length} scenarios</p>
             </div>
             <div className="flex gap-3">
+              <input ref={importRef} type="file" accept=".pdf,.docx,.txt" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) importFromPDF(f) }} />
+              <button onClick={() => importRef.current?.click()} disabled={importing}
+                className="border border-gray-300 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition disabled:opacity-50">
+                {importing ? `⏳ ${importStatus}` : '📄 Import PDF'}
+              </button>
+              {importStatus && !importing && (
+                <span className="text-sm text-green-600 font-medium">{importStatus}</span>
+              )}
               <button onClick={() => setAiOpen(!aiOpen)}
                 className={`px-4 py-2 rounded-lg text-sm border transition ${aiOpen ? 'bg-blue-600 text-white border-blue-600' : 'border-blue-300 text-blue-600 hover:bg-blue-50'}`}>
                 🤖 AI Assistant

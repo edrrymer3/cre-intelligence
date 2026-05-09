@@ -30,6 +30,21 @@ interface PipelineCount {
   _count: { id: number }
 }
 
+interface FollowUp {
+  id: number
+  summary: string
+  follow_up_date: string
+  follow_up_note: string | null
+  contact: { name: string | null; company: { name: string } | null }
+}
+
+interface DealMilestone {
+  id: number
+  milestone: string
+  due_date: string | null
+  deal: { deal_name: string; status: string }
+}
+
 interface PortfolioLocation {
   id: number
   property_name: string | null
@@ -48,6 +63,9 @@ interface DigestData {
   newAlerts: Alert[]
   pipelineByStatus: PipelineCount[]
   urgentPortfolioLeases: PortfolioLocation[]
+  todayFollowUps: FollowUp[]
+  dealMilestonesThisWeek: DealMilestone[]
+  dealsByStatus: PipelineCount[]
 }
 
 const SCORE_COLORS: Record<number, string> = {
@@ -80,6 +98,39 @@ export default function DigestPage() {
       ) : data ? (
         <div className="space-y-6">
 
+          {/* Today's Priority Actions */}
+          {((data.todayFollowUps?.length || 0) + (data.dealMilestonesThisWeek?.length || 0)) > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-5">
+              <h2 className="font-semibold text-orange-900 mb-3">🎯 Today's Priority Actions</h2>
+              <div className="space-y-2">
+                {data.todayFollowUps?.map((f) => (
+                  <div key={f.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 border border-orange-100">
+                    <div>
+                      <span className="font-medium text-gray-900 text-sm">{f.contact?.name || 'Contact'}</span>
+                      {f.contact?.company && <span className="text-gray-500 text-sm"> @ {f.contact.company.name}</span>}
+                      <p className="text-xs text-gray-500 mt-0.5">{f.follow_up_note || f.summary}</p>
+                    </div>
+                    <Link href="/dashboard/contacts" className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded-lg hover:bg-orange-700 transition flex-shrink-0 ml-4">
+                      Follow Up
+                    </Link>
+                  </div>
+                ))}
+                {data.dealMilestonesThisWeek?.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 border border-orange-100">
+                    <div>
+                      <span className="font-medium text-gray-900 text-sm">{m.milestone}</span>
+                      <span className="text-gray-500 text-sm"> — {m.deal.deal_name}</span>
+                      {m.due_date && <p className="text-xs text-orange-600 mt-0.5">Due {new Date(m.due_date).toLocaleDateString()}</p>}
+                    </div>
+                    <Link href="/dashboard/deals" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition flex-shrink-0 ml-4">
+                      View Deal
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Summary cards */}
           <div className="grid grid-cols-4 gap-4">
             {[
@@ -96,15 +147,15 @@ export default function DigestPage() {
             ))}
           </div>
 
-          {/* Pipeline snapshot */}
-          {data.pipelineByStatus.length > 0 && (
+          {/* Deal Pipeline snapshot */}
+          {(data.dealsByStatus?.length || 0) > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-gray-800">Pipeline Status</h2>
-                <Link href="/dashboard/pipeline" className="text-xs text-blue-600 hover:underline">View all →</Link>
+                <h2 className="font-semibold text-gray-800">Active Deals by Stage</h2>
+                <Link href="/dashboard/deals" className="text-xs text-blue-600 hover:underline">Deal Tracker →</Link>
               </div>
               <div className="flex gap-3 flex-wrap">
-                {data.pipelineByStatus.map((p) => (
+                {(data.dealsByStatus || []).map((p) => (
                   <div key={p.status} className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200 text-center min-w-[100px]">
                     <div className="text-xl font-bold text-gray-900">{p._count.id}</div>
                     <div className="text-xs text-gray-500">{p.status}</div>

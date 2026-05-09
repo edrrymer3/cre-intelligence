@@ -19,6 +19,7 @@ export interface ScenarioInput {
   capex_psf?: number
   parking_cost_monthly?: number
   parking_spaces?: number
+  notes?: string
 }
 
 export interface CashFlow {
