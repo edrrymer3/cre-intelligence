@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getOrgId } from '@/lib/orgContext'
 
 export async function GET(req: Request) {
+  const orgId = await getOrgId()
   const { searchParams } = new URL(req.url)
   const industry = searchParams.get('industry')
   const state = searchParams.get('state')
@@ -11,7 +13,7 @@ export async function GET(req: Request) {
   const limit = parseInt(searchParams.get('limit') || '25')
   const skip = (page - 1) * limit
 
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = { org_id: orgId }
   if (industry) where.industry = { contains: industry, mode: 'insensitive' }
   if (state) where.hq_state = state
 

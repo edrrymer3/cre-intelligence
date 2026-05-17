@@ -17,7 +17,13 @@ export const authOptions: NextAuthOptions = {
         if (!user || !user.password_hash) return null
         const valid = await bcrypt.compare(credentials.password, user.password_hash)
         if (!valid) return null
-        return { id: String(user.id), email: user.email, name: user.name, role: user.role }
+        return {
+          id: String(user.id),
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          orgId: user.org_id,
+        }
       },
     }),
   ],
@@ -25,12 +31,25 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: '/login' },
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.role = (user as { id: string; email: string; name: string; role: string }).role
+      if (user) {
+        const u = user as { id: string; email: string; name: string; role: string; orgId: number }
+        token.role = u.role
+        token.orgId = u.orgId
+      }
       return token
     },
     session({ session, token }) {
-      if (session.user) (session.user as { role?: string }).role = token.role as string
+      if (session.user) {
+        const u = session.user as { role?: string; orgId?: number }
+        u.role = token.role as string
+        u.orgId = token.orgId as number
+      }
       return session
     },
   },
+}
+
+// Helper to get org_id from session
+export function getOrgId(session: { user?: { orgId?: number } } | null): number {
+  return session?.user?.orgId || 1
 }

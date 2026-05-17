@@ -2,14 +2,17 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getOrgId } from '@/lib/orgContext'
 
 export async function GET(req: Request) {
+  const orgId = await getOrgId()
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
   const assignedTo = searchParams.get('assigned_to')
 
   const deals = await prisma.deal.findMany({
     where: {
+      org_id: orgId,
       ...(status ? { status } : {}),
       ...(assignedTo ? { assigned_to: assignedTo } : {}),
     },

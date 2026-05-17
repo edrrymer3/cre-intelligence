@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getOrgId } from '@/lib/orgContext'
 import { extractBuildingSurvey } from '@/lib/claude'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 export async function GET(req: Request) {
+  const orgId = await getOrgId()
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search')
   const type = searchParams.get('type')
@@ -12,6 +14,7 @@ export async function GET(req: Request) {
 
   const surveys = await prisma.buildingSurvey.findMany({
     where: {
+      org_id: orgId,
       ...(type ? { property_type: type } : {}),
       ...(city ? { city: { contains: city, mode: 'insensitive' } } : {}),
       ...(search ? {

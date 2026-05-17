@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getOrgId } from '@/lib/orgContext'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)

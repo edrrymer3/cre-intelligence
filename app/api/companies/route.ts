@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getOrgId } from '@/lib/orgContext'
 
 export async function GET(req: Request) {
+  const orgId = await getOrgId()
   const { searchParams } = new URL(req.url)
   const state = searchParams.get('state')
   const search = searchParams.get('search')
@@ -9,6 +11,7 @@ export async function GET(req: Request) {
 
   const companies = await prisma.company.findMany({
     where: {
+      org_id: orgId,
       ...(all ? {} : { active: true }),
       ...(state ? { hq_state: state } : {}),
       ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
@@ -20,7 +23,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const orgId = await getOrgId()
   const body = await req.json()
-  const company = await prisma.company.create({ data: body })
+  const company = await prisma.company.create({ data: { ...body, org_id: orgId } })
   return NextResponse.json(company, { status: 201 })
 }

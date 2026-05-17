@@ -45,9 +45,14 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="font-bold text-gray-900 text-lg">CRE Intelligence</div>
-          <Link href="/login" className="text-sm bg-[#1a1a2e] text-white px-5 py-2 rounded-lg hover:bg-[#2d2d4e] transition">
-            Login
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/signup" className="text-sm border border-white/30 text-white px-5 py-2 rounded-lg hover:bg-white/10 transition">
+              Start Free
+            </Link>
+            <Link href="/login" className="text-sm bg-[#1a1a2e] text-white px-5 py-2 rounded-lg hover:bg-[#2d2d4e] transition">
+              Login
+            </Link>
+          </div>
         </div>
       </nav>
 

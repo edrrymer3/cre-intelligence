@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getOrgId } from '@/lib/orgContext'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 

@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getOrgId } from '@/lib/orgContext'
 
 export async function GET() {
+  const orgId = await getOrgId()
   const alerts = await prisma.alert.findMany({
-    where: { reviewed: false },
+    where: {
+      org_id: orgId, reviewed: false },
     include: { company: { select: { name: true, ticker: true } } },
     orderBy: { filing_date: 'desc' },
     take: 50,
